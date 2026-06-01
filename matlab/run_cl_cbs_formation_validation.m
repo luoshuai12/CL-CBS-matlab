@@ -922,3 +922,393 @@ end
 function r = randRange(a, b)
     r = a + (b - a) * rand();
 end
+
+%% ================================================================
+%  本文算法 (Proposed): Hybrid A* + 应力矩阵仿射编队 + 走廊优化
+%% ================================================================
+
+function paths = generateProposedAffineFormationPaths(cfg, map)
+% 流程1+2+3 的集成: 本文算法完整实现
+% 1) Hybrid A* 规划领航者路径 (阿克曼运动学约束)
+% 2) 计算平衡应力矩阵 Omega, 解析计算跟随者路径
+% 3) 安全走廊构建 + 二次规划轨迹精化
+
+    occ     = map.occupancy;
+    starts  = cfg.startStates(:, 1:2);
+    goals   = cfg.goalStates(:, 1:2);
+    n       = cfg.numRobots;
+    lIdx    = cfg.leaderIdx;
+    fIdx    = cfg.followerIdx;
+    paths   = cell(n, 1);
+
+    % ---- 步骤1: 领航者 Hybrid A* 路径规划 ----
+    leaderRaw = cell(numel(lIdx), 1);
+    for i = 1:numel(lIdx)
+        rid = lIdx(i);
+        startState = cfg.startStates(rid, :);
+        goalXY     = goals(rid, :);
+
+        [p3d, ok] = hybridAstarPlanLocal(startState, goalXY, occ, cfg);
+        if ok
+            leaderRaw{i} = p3d(:,1:2);
+        else
+            [p2d, ok2] = astarPlan(starts(rid,:), goalXY, occ, cfg);
+            if ok2
+                leaderRaw{i} = p2d;
+            else
+                leaderRaw{i} = straightPath(starts(rid,:), goalXY, 80);
+                leaderRaw{i} = keepPathFree(leaderRaw{i}, map.obstacles, cfg);
+            end
+        end
+        leaderRaw{i} = smoothPolyline(leaderRaw{i}, 2);
+        leaderRaw{i}(1,:)   = starts(lIdx(i),:);
+        leaderRaw{i}(end,:) = goalXY;
+    end
+    leaderRaw = resolveTemporalConflicts(leaderRaw, cfg);
+    for i = 1:numel(lIdx)
+        paths{lIdx(i)} = leaderRaw{i};
+    end
+
+    % ---- 步骤2: 计算应力矩阵, 解析求跟随者路径 ----
+    Omega = computeStressMatrixLocal(cfg.nominalPositions);
+
+    % 领航者1 路径重采样至 dt=1s
+    leader1raw = paths{lIdx(1)};
+    totalLen   = polylineLength(leader1raw);
+    nSteps     = max(10, ceil(totalLen / cfg.nominalSpeed) + 2);
+    leader1    = resamplePolyline(leader1raw, nSteps);
+    thetaL1    = computeHeadingLocal(leader1);
+
+    % 领航者2,3: 极坐标偏移 p_Lk(t) = p_L1(t) + R(θ(t))*d_1k
+    P_star = cfg.nominalPositions;
+    d_12   = P_star(lIdx(2),:) - P_star(lIdx(1),:);
+    d_13   = P_star(lIdx(3),:) - P_star(lIdx(1),:);
+
+    leader2 = zeros(nSteps,2);
+    leader3 = zeros(nSteps,2);
+    for t = 1:nSteps
+        ct = cos(thetaL1(t)); st = sin(thetaL1(t));
+        R  = [ct,-st; st,ct];
+        leader2(t,:) = leader1(t,:) + (R*d_12')';
+        leader3(t,:) = leader1(t,:) + (R*d_13')';
+    end
+    leader2 = clipPathToMap(leader2, cfg);
+    leader3 = clipPathToMap(leader3, cfg);
+
+    paths{lIdx(1)} = leader1;
+    paths{lIdx(2)} = leader2;
+    paths{lIdx(3)} = leader3;
+
+    % 跟随者: p_f(t) = -Omega_ff^{-1} * Omega_fl * p_l(t)
+    Omega_ff = Omega(fIdx, fIdx);
+    Omega_fl = Omega(fIdx, lIdx);
+    if rcond(Omega_ff) < 1e-10
+        invOff = pinv(Omega_ff);
+    else
+        invOff = Omega_ff \ eye(numel(fIdx));
+    end
+    M_fl = -invOff * Omega_fl;
+
+    for k = 1:numel(fIdx)
+        paths{fIdx(k)} = zeros(nSteps,2);
+    end
+    for t = 1:nSteps
+        p_l = [leader1(t,:); leader2(t,:); leader3(t,:)];
+        p_f = M_fl * p_l;
+        for k = 1:numel(fIdx)
+            paths{fIdx(k)}(t,:) = p_f(k,:);
+        end
+    end
+    for k = 1:numel(fIdx)
+        paths{fIdx(k)} = clipPathToMap(paths{fIdx(k)}, cfg);
+    end
+
+    % ---- 步骤3: 安全走廊 + QP 轨迹优化 ----
+    for rid = 1:n
+        if isempty(paths{rid}) || size(paths{rid},1) < 2, continue; end
+        corr = buildSafetyCorridorsLocal(paths{rid}, map.obstacles, cfg);
+        paths{rid} = optimTrajQPLocal(paths{rid}, corr, starts(rid,:), goals(rid,:), cfg);
+        paths{rid}(1,:)   = starts(rid,:);
+        paths{rid}(end,:) = goals(rid,:);
+    end
+
+    paths = resolveTemporalConflicts(paths, cfg);
+    paths = ensureGoalConsistency(paths, goals, map.obstacles, cfg);
+end
+
+% ------------------------------------------------------------------
+%  Hybrid A* (阿克曼运动学) - 本地版本
+% ------------------------------------------------------------------
+function [path, success] = hybridAstarPlanLocal(startState, goalXY, occ, cfg)
+% Hybrid A*: 状态 = [x,y,theta], 阿克曼模型节点展开
+
+    v       = cfg.nominalSpeed;
+    dt      = cfg.hybridDt;
+    L       = cfg.wheelbase;
+    nS      = cfg.numSteeringAngles;
+    dMax    = cfg.maxSteeringAngle;
+    hw      = cfg.hybridHWeight;
+    maxN    = cfg.hybridMaxNodes;
+    goalTol = cfg.hybridGoalTol;
+    mapW    = cfg.mapSize(1);
+    mapH    = cfg.mapSize(2);
+    gRes    = cfg.gridResolution;
+
+    xR  = cfg.hybridXRes;
+    yR  = cfg.hybridYRes;
+    thR = cfg.hybridThRes;
+    nXG = floor(mapW/xR) + 2;
+    nYG = floor(mapH/yR) + 2;
+    nThG = floor(2*pi/thR) + 2;
+
+    deltaSet = linspace(-dMax, dMax, nS);
+
+    gBest  = inf(nXG, nYG, nThG);
+    nSt    = zeros(maxN, 3);
+    nGcost = zeros(maxN, 1);
+    nFcost = zeros(maxN, 1);
+    nPar   = zeros(maxN, 1, 'int32');
+    nCnt   = 0;
+
+    heapF   = zeros(maxN, 1);
+    heapIdx = zeros(maxN, 1, 'int32');
+    heapSz  = 0;
+
+    nCnt = nCnt + 1;
+    nSt(nCnt,:)  = startState;
+    nGcost(nCnt) = 0;
+    h0 = hw * norm(startState(1:2)-goalXY);
+    nFcost(nCnt) = h0;
+    nPar(nCnt)   = 0;
+    heapSz = heapSz + 1;
+    heapF(heapSz) = h0; heapIdx(heapSz) = nCnt;
+
+    gi0 = stateToGridIdxLocal(startState, xR, yR, thR, nXG, nYG, nThG);
+    gBest(gi0(1),gi0(2),gi0(3)) = 0;
+
+    success  = false;
+    goalNode = -1;
+
+    while heapSz > 0 && nCnt < maxN
+        [~, mi] = min(heapF(1:heapSz));
+        currIdx = heapIdx(mi);
+        heapF(mi)   = heapF(heapSz);
+        heapIdx(mi) = heapIdx(heapSz);
+        heapSz = heapSz - 1;
+
+        curr  = nSt(currIdx,:);
+        gCurr = nGcost(currIdx);
+
+        if norm(curr(1:2)-goalXY) <= goalTol
+            success = true; goalNode = currIdx; break;
+        end
+
+        for a = 1:nS
+            delta  = deltaSet(a);
+            th1    = curr(3);
+            dth_dt = (v/L)*tan(delta);
+
+            x_new  = curr(1) + dt*v*cos(th1 + 0.5*dt*dth_dt);
+            y_new  = curr(2) + dt*v*sin(th1 + 0.5*dt*dth_dt);
+            th_new = mod(th1 + dt*dth_dt + pi, 2*pi) - pi;
+
+            if x_new<0||x_new>mapW||y_new<0||y_new>mapH, continue; end
+
+            hit = false;
+            for frac = [0.35, 0.7, 1.0]
+                xi = curr(1)+frac*(x_new-curr(1));
+                yi = curr(2)+frac*(y_new-curr(2));
+                gxi = min(max(round(xi/gRes)+1,1), size(occ,2));
+                gyi = min(max(round(yi/gRes)+1,1), size(occ,1));
+                if occ(gyi,gxi), hit=true; break; end
+            end
+            if hit, continue; end
+
+            newState = [x_new, y_new, th_new];
+            gi  = stateToGridIdxLocal(newState, xR, yR, thR, nXG, nYG, nThG);
+            gNew = gCurr + v*dt;
+
+            if gNew >= gBest(gi(1),gi(2),gi(3)), continue; end
+            gBest(gi(1),gi(2),gi(3)) = gNew;
+
+            if nCnt < maxN
+                nCnt = nCnt+1;
+                nSt(nCnt,:)  = newState;
+                nGcost(nCnt) = gNew;
+                hNew         = hw*norm(newState(1:2)-goalXY);
+                nFcost(nCnt) = gNew+hNew;
+                nPar(nCnt)   = currIdx;
+                heapSz = heapSz+1;
+                heapF(heapSz) = gNew+hNew; heapIdx(heapSz) = nCnt;
+            end
+        end
+    end
+
+    if success
+        buf  = zeros(nCnt,3);
+        pLen = 0;
+        idx  = goalNode;
+        while idx > 0
+            pLen = pLen+1;
+            buf(pLen,:) = nSt(idx,:);
+            idx = nPar(idx);
+        end
+        path = flip(buf(1:pLen,:),1);
+        path(end,1:2) = goalXY;
+    else
+        path = [];
+    end
+end
+
+function gi = stateToGridIdxLocal(s, xR, yR, thR, nXG, nYG, nThG)
+    ix  = min(max(floor(s(1)/xR)+1, 1), nXG);
+    iy  = min(max(floor(s(2)/yR)+1, 1), nYG);
+    thn = mod(s(3), 2*pi);
+    it  = min(max(floor(thn/thR)+1, 1), nThG);
+    gi  = [ix, iy, it];
+end
+
+% ------------------------------------------------------------------
+%  应力矩阵计算 - 本地版本
+% ------------------------------------------------------------------
+function Omega = computeStressMatrixLocal(P_star)
+% Omega = I - Q*(Q'Q)^{-1}*Q', Q = [ones(N,1), P_star]
+% 满足: Omega*1=0, Omega*P_star=0, rank(Omega)=N-3
+
+    N = size(P_star, 1);
+    Q = [ones(N,1), P_star];
+    [Qq, ~] = qr(Q, 0);
+    Omega   = eye(N) - Qq*Qq';
+    Omega   = (Omega+Omega')/2;
+    Omega(abs(Omega)<1e-12) = 0;
+end
+
+% ------------------------------------------------------------------
+%  计算路径航向角 - 本地版本
+% ------------------------------------------------------------------
+function heading = computeHeadingLocal(path)
+    N = size(path,1);
+    heading = zeros(N,1);
+    for i = 1:N-1
+        dx = path(i+1,1)-path(i,1);
+        dy = path(i+1,2)-path(i,2);
+        if hypot(dx,dy) > 1e-6
+            heading(i) = atan2(dy,dx);
+        elseif i > 1
+            heading(i) = heading(i-1);
+        end
+    end
+    heading(N) = heading(N-1);
+    kernel  = [0.1;0.2;0.4;0.2;0.1];
+    heading = conv(heading, kernel, 'same');
+end
+
+% ------------------------------------------------------------------
+%  安全走廊构建 - 本地版本
+% ------------------------------------------------------------------
+function corridors = buildSafetyCorridorsLocal(path, obstacles, cfg)
+    N    = size(path,1);
+    corr = zeros(N,4);
+    step = cfg.gridResolution;
+    hw   = cfg.robotRadius + 0.5;
+    mapW = cfg.mapSize(1);
+    mapH = cfg.mapSize(2);
+
+    for k = 1:N
+        cx = path(k,1); cy = path(k,2);
+        xlo = max(0, cx-hw);  xhi = min(mapW, cx+hw);
+        ylo = max(0, cy-hw);  yhi = min(mapH, cy+hw);
+
+        % 向右扩展
+        while xhi+step <= mapW
+            if corridorEdgeClear(xhi+step, ylo, yhi, 'x', obstacles, cfg)
+                xhi = xhi+step;
+            else, break; end
+        end
+        % 向左扩展
+        while xlo-step >= 0
+            if corridorEdgeClear(xlo-step, ylo, yhi, 'x', obstacles, cfg)
+                xlo = xlo-step;
+            else, break; end
+        end
+        % 向上扩展
+        while yhi+step <= mapH
+            if corridorEdgeClear(yhi+step, xlo, xhi, 'y', obstacles, cfg)
+                yhi = yhi+step;
+            else, break; end
+        end
+        % 向下扩展
+        while ylo-step >= 0
+            if corridorEdgeClear(ylo-step, xlo, xhi, 'y', obstacles, cfg)
+                ylo = ylo-step;
+            else, break; end
+        end
+        corr(k,:) = [xlo, xhi, ylo, yhi];
+    end
+    corridors = corr;
+end
+
+function ok = corridorEdgeClear(edgeVal, lo, hi, dir, obstacles, cfg)
+    ok = true;
+    r  = cfg.robotRadius + 0.1;
+    ns = 4;
+    pts = linspace(lo, hi, ns);
+    for i = 1:ns
+        if strcmp(dir,'x'), pt = [edgeVal, pts(i)];
+        else,               pt = [pts(i),  edgeVal]; end
+        for oi = 1:size(obstacles,1)
+            if norm(pt-obstacles(oi,1:2)) < obstacles(oi,3)+r
+                ok = false; return;
+            end
+        end
+    end
+end
+
+% ------------------------------------------------------------------
+%  轨迹优化 (QP) - 本地版本
+% ------------------------------------------------------------------
+function optPath = optimTrajQPLocal(refPath, corridors, startXY, goalXY, cfg)
+% 最小化 ||p-p_ref||^2 + lambda*||二阶差分||^2  受走廊约束
+
+    T     = size(refPath,1);
+    nVars = 2*T;
+    lam   = 0.08;
+
+    refFlat = reshape(refPath', nVars, 1);
+
+    % 平滑正则化 (二阶差分)
+    e   = ones(T,1);
+    D2  = spdiags([e,-2*e,e], 0:2, max(1,T-2), T);
+    Dreg = kron(D2, eye(2));
+    H   = 2*(speye(nVars) + lam*(Dreg'*Dreg));
+    fv  = -2*refFlat;
+
+    lb = zeros(nVars,1); ub = zeros(nVars,1);
+    for t = 1:T
+        lb(2*t-1) = max(0,              corridors(t,1));
+        ub(2*t-1) = min(cfg.mapSize(1), corridors(t,2));
+        lb(2*t)   = max(0,              corridors(t,3));
+        ub(2*t)   = min(cfg.mapSize(2), corridors(t,4));
+    end
+
+    Aeq = zeros(4,nVars); beq = zeros(4,1);
+    Aeq(1,1)=1; beq(1)=startXY(1);
+    Aeq(2,2)=1; beq(2)=startXY(2);
+    Aeq(3,nVars-1)=1; beq(3)=goalXY(1);
+    Aeq(4,nVars)=1;   beq(4)=goalXY(2);
+
+    opts = optimoptions('quadprog','Display','none','MaxIterations',600);
+    [xOpt,~,flag] = quadprog(H, fv, [], [], Aeq, beq, lb, ub, refFlat, opts);
+
+    if flag > 0
+        optPath = reshape(xOpt, 2, T)';
+    else
+        optPath = refPath;
+        for t = 1:T
+            optPath(t,1) = min(max(optPath(t,1), corridors(t,1)), corridors(t,2));
+            optPath(t,2) = min(max(optPath(t,2), corridors(t,3)), corridors(t,4));
+        end
+    end
+    optPath(1,:)   = startXY;
+    optPath(end,:) = goalXY;
+end
