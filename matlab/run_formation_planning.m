@@ -148,6 +148,9 @@ function cfg = defaultConfig()
     cfg.interRobotSafeDist    = 2.5;    % 最小机器人间距 m
     cfg.maxConflictIter       = 400;
 
+    % 随机种子
+    cfg.randomSeed            = 20260601;
+
     % 障碍物采样
     cfg.numObstacles          = 15;
     cfg.obstacleRadiusRange   = [1.5, 3.0];
