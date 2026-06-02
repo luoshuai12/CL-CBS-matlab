@@ -15,17 +15,26 @@ function handles = DrawTrajectory(solution, params)
     for i = 1:numel(solution)
         states = solution{i}.states;
         lineStyle = style.lineStyles{mod(i - 1, numel(style.lineStyles)) + 1};
+        fadedColor = fadeColor(colors(i, :), style.historyAlpha);
         handles(i) = plot(ax, states(:, 1), states(:, 2), lineStyle, ...
-            'Color', colors(i, :), 'LineWidth', style.pathLineWidth, ...
-            'DisplayName', style.labels{i});
-        plot(ax, states(:, 1), states(:, 2), '.', 'Color', colors(i, :), ...
+            'Color', fadedColor, 'LineWidth', style.historyLineWidth, ...
+            'HandleVisibility', 'off');
+        plot(ax, states(:, 1), states(:, 2), '.', 'Color', fadedColor, ...
             'MarkerSize', 6, 'HandleVisibility', 'off');
-        DrawVehicle(states(1, :), params, colors(i, :), 0.18, ax);
-        DrawVehicle(states(end, :), params, colors(i, :), 0.35, ax);
+        DrawVehicle(states(end, :), params, colors(i, :), 0.62, ax);
+        plot(ax, states(end, 1), states(end, 2), 'o', 'Color', colors(i, :), ...
+            'MarkerFaceColor', colors(i, :), 'MarkerSize', 5, ...
+            'HandleVisibility', 'off');
+        text(ax, states(end, 1) + 1.2, states(end, 2) + 0.8, style.shortLabels{i}, ...
+            'Color', colors(i, :), 'FontWeight', 'bold', 'FontSize', 9, ...
+            'HandleVisibility', 'off');
     end
 
     drawFormationEdges(ax, solution, style);
-    legend(ax, handles, style.labels, 'Location', 'eastoutside');
+    try
+        legend(ax, 'off');
+    catch
+    end
 end
 
 function drawFormationEdges(ax, solution, style)
@@ -45,4 +54,8 @@ function drawFormationEdges(ax, solution, style)
             'LineWidth', 1.0, 'Color', [0.1, 0.1, 0.1], ...
             'HandleVisibility', 'off');
     end
+end
+
+function c = fadeColor(color, alpha)
+    c = 1 - alpha * (1 - color);
 end

@@ -32,20 +32,28 @@ function style = VisualizationStyle(nAgents)
     end
 
     labels = cell(1, nAgents);
+    shortLabels = cell(1, nAgents);
     for i = 1:nAgents
         labels{i} = sprintf('%s%d', roleNames{i}, i - 1);
+        if i <= 3
+            shortLabels{i} = sprintf('L%d', i);
+        else
+            shortLabels{i} = sprintf('F%d', i - 3);
+        end
     end
 
     style = struct();
     style.colors = colors;
     style.lineStyles = lineStyles;
     style.labels = labels;
+    style.shortLabels = shortLabels;
     style.roles = roles;
     style.leaderIdx = 1:min(3, nAgents);
     style.followerIdx = (min(3, nAgents) + 1):nAgents;
     style.formationEdges = defaultFormationEdges(nAgents);
-    style.pathLineWidth = 2.2;
-    style.historyLineWidth = 1.4;
+    style.pathLineWidth = 2.0;
+    style.historyLineWidth = 0.9;
+    style.historyAlpha = 0.38;
 end
 
 function edges = defaultFormationEdges(nAgents)

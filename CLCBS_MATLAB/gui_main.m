@@ -140,14 +140,24 @@ function playAnimation(src, ~)
     style = VisualizationStyle(numel(results.solution));
     colors = style.colors;
     vehicleHandles = repmat(struct('body', [], 'heading', []), numel(results.solution), 1);
-    pathHandles = zeros(numel(results.solution), 1);
+    labelHandles = zeros(numel(results.solution), 1);
+    markerHandles = zeros(numel(results.solution), 1);
     for i = 1:numel(results.solution)
         lineStyle = style.lineStyles{mod(i - 1, numel(style.lineStyles)) + 1};
-        pathHandles(i) = plot(app.ax, results.solution{i}.states(:, 1), ...
-            results.solution{i}.states(:, 2), lineStyle, 'Color', colors(i, :), ...
-            'LineWidth', style.historyLineWidth, 'DisplayName', style.labels{i});
+        fadedColor = fadeColor(colors(i, :), style.historyAlpha);
+        plot(app.ax, results.solution{i}.states(:, 1), ...
+            results.solution{i}.states(:, 2), lineStyle, 'Color', fadedColor, ...
+            'LineWidth', style.historyLineWidth, 'HandleVisibility', 'off');
         vehicleHandles(i) = DrawVehicle(stateAtTime(results.solution{i}.states, 0), ...
-            results.params, colors(i, :), 0.55, app.ax);
+            results.params, colors(i, :), 0.68, app.ax);
+        markerHandles(i) = plot(app.ax, results.solution{i}.states(1, 1), ...
+            results.solution{i}.states(1, 2), 'o', 'Color', colors(i, :), ...
+            'MarkerFaceColor', colors(i, :), 'MarkerSize', 5, ...
+            'HandleVisibility', 'off');
+        labelHandles(i) = text(app.ax, results.solution{i}.states(1, 1) + 1.2, ...
+            results.solution{i}.states(1, 2) + 0.8, style.shortLabels{i}, ...
+            'Color', colors(i, :), 'FontWeight', 'bold', 'FontSize', 9, ...
+            'HandleVisibility', 'off');
     end
     formationHandles = initFormationEdges(app.ax, results.solution, style);
     timeText = text(app.ax, 0.985, 0.955, 't = 0', 'Units', 'normalized', ...
@@ -155,7 +165,10 @@ function playAnimation(src, ~)
         'FontWeight', 'bold', 'BackgroundColor', [1, 1, 1], ...
         'Margin', 3, 'EdgeColor', [0.4, 0.4, 0.4], ...
         'HandleVisibility', 'off');
-    legend(app.ax, pathHandles, style.labels, 'Location', 'eastoutside');
+    try
+        legend(app.ax, 'off');
+    catch
+    end
     title(app.ax, 'CL-CBS formation animation');
 
     for t = 0:maxT
@@ -167,6 +180,8 @@ function playAnimation(src, ~)
             set(vehicleHandles(i).body, 'XData', corners(:, 1), 'YData', corners(:, 2));
             set(vehicleHandles(i).heading, 'XData', [rear(1), front(1)], ...
                 'YData', [rear(2), front(2)]);
+            set(markerHandles(i), 'XData', state(1), 'YData', state(2));
+            set(labelHandles(i), 'Position', [state(1) + 1.2, state(2) + 0.8, 0]);
         end
         updateFormationEdges(formationHandles, currentStates, style);
         set(timeText, 'String', sprintf('t = %d', t));
@@ -177,6 +192,10 @@ function playAnimation(src, ~)
         end
         pause(pauseTime);
     end
+end
+
+function c = fadeColor(color, alpha)
+    c = 1 - alpha * (1 - color);
 end
 
 function clearDisplay(src, ~)

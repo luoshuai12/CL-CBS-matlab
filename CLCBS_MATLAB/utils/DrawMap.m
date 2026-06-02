@@ -26,8 +26,17 @@ function ax = DrawMap(mapData, starts, goals, params)
 
     if isfield(mapData, 'obstacles') && ~isempty(mapData.obstacles)
         theta = linspace(0, 2 * pi, 80);
+        safetyRadius = 0;
+        if nargin >= 4 && isstruct(params)
+            safetyRadius = hypot(params.carWidth / 2, (params.LF + params.LB) / 2);
+        end
         for i = 1:size(mapData.obstacles, 1)
             obs = mapData.obstacles(i, :);
+            safeR = obs(3) + safetyRadius;
+            fill(ax, obs(1) + safeR * cos(theta), obs(2) + safeR * sin(theta), ...
+                [0.95, 0.35, 0.15], 'EdgeColor', [0.85, 0.25, 0.05], ...
+                'LineStyle', '--', 'LineWidth', 0.8, 'FaceAlpha', 0.12, ...
+                'HandleVisibility', 'off');
             fill(ax, obs(1) + obs(3) * cos(theta), obs(2) + obs(3) * sin(theta), ...
                 [0.30, 0.30, 0.30], 'EdgeColor', [0.05, 0.05, 0.05], ...
                 'LineWidth', 1.1, 'FaceAlpha', 0.48, 'HandleVisibility', 'off');
@@ -40,7 +49,7 @@ function ax = DrawMap(mapData, starts, goals, params)
         for i = 1:size(starts, 1)
             labelPrefix = rolePrefix(i);
             alphaColor = labelColor(i);
-            text(ax, starts(i, 1), starts(i, 2) + 0.8, sprintf('%s%d', labelPrefix, i - 1), ...
+            text(ax, starts(i, 1), starts(i, 2) + 0.8, shortRoleLabel(i), ...
                 'Color', alphaColor, 'FontSize', labelSize(i), ...
                 'HorizontalAlignment', 'center', 'HandleVisibility', 'off');
         end
@@ -50,12 +59,19 @@ function ax = DrawMap(mapData, starts, goals, params)
         plot(ax, goals(:, 1), goals(:, 2), 'rx', 'LineWidth', 1.7, ...
             'MarkerSize', 9, 'HandleVisibility', 'off');
         for i = 1:size(goals, 1)
-            labelPrefix = rolePrefix(i);
             alphaColor = goalLabelColor(i);
-            text(ax, goals(i, 1), goals(i, 2) + 0.8, sprintf('%s-G%d', labelPrefix, i - 1), ...
+            text(ax, goals(i, 1), goals(i, 2) + 0.8, ['G-', shortRoleLabel(i)], ...
                 'Color', alphaColor, 'FontSize', labelSize(i), ...
                 'HorizontalAlignment', 'center', 'HandleVisibility', 'off');
         end
+    end
+end
+
+function label = shortRoleLabel(idx)
+    if idx <= 3
+        label = sprintf('L%d', idx);
+    else
+        label = sprintf('F%d', idx - 3);
     end
 end
 
