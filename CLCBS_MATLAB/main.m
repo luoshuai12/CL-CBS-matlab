@@ -22,16 +22,19 @@ function results = main(userConfig)
     cfg = defaultRunConfig(rootDir);
     cfg = mergeStruct(cfg, userConfig);
 
-    if exist(cfg.scenarioFile, 'file') && exist(cfg.mapFile, 'file')
-        [mapData, starts, goals, params] = loadScenario(cfg.scenarioFile, cfg.mapFile);
-    else
+    if cfg.forceGenerate || ~exist(cfg.scenarioFile, 'file') || ~exist(cfg.mapFile, 'file')
         createConfig = struct();
+        createConfig.mapSize = cfg.mapSize;
+        createConfig.obstacleCount = cfg.obstacleCount;
+        createConfig.randomSeed = cfg.randomSeed;
         if isfield(cfg, 'params')
             createConfig.params = cfg.params;
         end
         [mapData, starts, goals, params] = CreateMap(createConfig);
         saveMap(cfg.mapFile, mapData);
         saveScenario(cfg.scenarioFile, starts, goals, params);
+    else
+        [mapData, starts, goals, params] = loadScenario(cfg.scenarioFile, cfg.mapFile);
     end
 
     if isfield(cfg, 'params')
@@ -101,6 +104,10 @@ function cfg = defaultRunConfig(rootDir)
     cfg.outputDir = fullfile(rootDir, 'result', 'save_results');
     cfg.showFigure = true;
     cfg.saveResults = true;
+    cfg.forceGenerate = true;
+    cfg.mapSize = [150, 50];
+    cfg.obstacleCount = 10;
+    cfg.randomSeed = 20260602;
     cfg.params = struct();
 end
 

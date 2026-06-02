@@ -23,38 +23,46 @@ function gui_main()
     panel = uipanel('Parent', fig, 'Title', '参数设置 / 控制', ...
         'Units', 'normalized', 'Position', [0.02, 0.15, 0.28, 0.78]);
 
-    uicontrol(panel, 'Style', 'text', 'String', '最大高层迭代', ...
+    uicontrol(panel, 'Style', 'text', 'String', '障碍物数量', ...
         'HorizontalAlignment', 'left', 'Units', 'normalized', ...
         'Position', [0.06, 0.88, 0.42, 0.05]);
+    app.obstaclePopup = uicontrol(panel, 'Style', 'popupmenu', ...
+        'String', {'10', '20', '30'}, 'Value', 1, ...
+        'Units', 'normalized', 'Position', [0.52, 0.88, 0.38, 0.055], ...
+        'Callback', @refreshInitialMap);
+
+    uicontrol(panel, 'Style', 'text', 'String', '最大高层迭代', ...
+        'HorizontalAlignment', 'left', 'Units', 'normalized', ...
+        'Position', [0.06, 0.80, 0.42, 0.05]);
     app.maxHighLevelEdit = uicontrol(panel, 'Style', 'edit', 'String', '80', ...
-        'Units', 'normalized', 'Position', [0.52, 0.88, 0.38, 0.055]);
+        'Units', 'normalized', 'Position', [0.52, 0.80, 0.38, 0.055]);
 
     uicontrol(panel, 'Style', 'text', 'String', '最大低层节点', ...
         'HorizontalAlignment', 'left', 'Units', 'normalized', ...
-        'Position', [0.06, 0.80, 0.42, 0.05]);
-    app.maxLowLevelEdit = uicontrol(panel, 'Style', 'edit', 'String', '45000', ...
-        'Units', 'normalized', 'Position', [0.52, 0.80, 0.38, 0.055]);
+        'Position', [0.06, 0.72, 0.42, 0.05]);
+    app.maxLowLevelEdit = uicontrol(panel, 'Style', 'edit', 'String', '70000', ...
+        'Units', 'normalized', 'Position', [0.52, 0.72, 0.38, 0.055]);
 
     uicontrol(panel, 'Style', 'text', 'String', '目标容差(m)', ...
         'HorizontalAlignment', 'left', 'Units', 'normalized', ...
-        'Position', [0.06, 0.72, 0.42, 0.05]);
+        'Position', [0.06, 0.64, 0.42, 0.05]);
     app.goalToleranceEdit = uicontrol(panel, 'Style', 'edit', 'String', '2.5', ...
-        'Units', 'normalized', 'Position', [0.52, 0.72, 0.38, 0.055]);
+        'Units', 'normalized', 'Position', [0.52, 0.64, 0.38, 0.055]);
 
     uicontrol(panel, 'Style', 'text', 'String', '动画步长(s)', ...
         'HorizontalAlignment', 'left', 'Units', 'normalized', ...
-        'Position', [0.06, 0.64, 0.42, 0.05]);
+        'Position', [0.06, 0.56, 0.42, 0.05]);
     app.pauseEdit = uicontrol(panel, 'Style', 'edit', 'String', '0.05', ...
-        'Units', 'normalized', 'Position', [0.52, 0.64, 0.38, 0.055]);
+        'Units', 'normalized', 'Position', [0.52, 0.56, 0.38, 0.055]);
 
     app.runButton = uicontrol(panel, 'Style', 'pushbutton', 'String', '运行仿真', ...
-        'Units', 'normalized', 'Position', [0.08, 0.53, 0.36, 0.07], ...
+        'Units', 'normalized', 'Position', [0.08, 0.46, 0.36, 0.07], ...
         'Callback', @runSimulation);
     app.playButton = uicontrol(panel, 'Style', 'pushbutton', 'String', '动画播放', ...
-        'Units', 'normalized', 'Position', [0.54, 0.53, 0.36, 0.07], ...
+        'Units', 'normalized', 'Position', [0.54, 0.46, 0.36, 0.07], ...
         'Callback', @playAnimation);
     app.clearButton = uicontrol(panel, 'Style', 'pushbutton', 'String', '清空显示', ...
-        'Units', 'normalized', 'Position', [0.08, 0.44, 0.82, 0.06], ...
+        'Units', 'normalized', 'Position', [0.08, 0.38, 0.82, 0.06], ...
         'Callback', @clearDisplay);
 
     app.statusText = uicontrol(panel, 'Style', 'listbox', 'String', {'等待运行...'}, ...
@@ -74,9 +82,13 @@ function runSimulation(src, ~)
     cfg = struct();
     cfg.showFigure = false;
     cfg.saveResults = true;
+    cfg.forceGenerate = true;
+    cfg.mapSize = [150, 50];
+    cfg.obstacleCount = selectedObstacleCount(app);
+    cfg.randomSeed = 20260602 + cfg.obstacleCount;
     cfg.params = struct();
     cfg.params.maxHighLevelIterations = readScalar(app.maxHighLevelEdit, 80);
-    cfg.params.maxLowLevelNodes = readScalar(app.maxLowLevelEdit, 45000);
+    cfg.params.maxLowLevelNodes = readScalar(app.maxLowLevelEdit, 70000);
     cfg.params.goalTolerance = readScalar(app.goalToleranceEdit, 2.5);
 
     try
@@ -109,19 +121,32 @@ function playAnimation(src, ~)
         maxT = max(maxT, results.solution{i}.states(end, 4));
     end
 
+    cla(app.ax);
+    axes(app.ax); %#ok<LAXES>
+    DrawMap(results.map, results.starts, results.goals, results.params);
+    colors = lines(numel(results.solution));
+    vehicleHandles = repmat(struct('body', [], 'heading', []), numel(results.solution), 1);
+    for i = 1:numel(results.solution)
+        plot(app.ax, results.solution{i}.states(:, 1), results.solution{i}.states(:, 2), ...
+            ':', 'Color', colors(i, :), 'LineWidth', 1.0);
+        vehicleHandles(i) = DrawVehicle(stateAtTime(results.solution{i}.states, 0), ...
+            results.params, colors(i, :), 0.55, app.ax);
+    end
+
     for t = 0:maxT
-        cla(app.ax);
-        axes(app.ax); %#ok<LAXES>
-        DrawMap(results.map, results.starts, results.goals, results.params);
-        colors = lines(numel(results.solution));
         for i = 1:numel(results.solution)
             state = stateAtTime(results.solution{i}.states, t);
-            plot(app.ax, results.solution{i}.states(:, 1), results.solution{i}.states(:, 2), ...
-                ':', 'Color', colors(i, :));
-            DrawVehicle(state, results.params, colors(i, :), 0.45, app.ax);
+            [corners, rear, front] = vehicleGeometry(state, results.params);
+            set(vehicleHandles(i).body, 'XData', corners(:, 1), 'YData', corners(:, 2));
+            set(vehicleHandles(i).heading, 'XData', [rear(1), front(1)], ...
+                'YData', [rear(2), front(2)]);
         end
         title(app.ax, sprintf('CL-CBS animation, t = %d', t));
-        drawnow;
+        try
+            drawnow limitrate;
+        catch
+            drawnow;
+        end
         pause(pauseTime);
     end
 end
@@ -136,11 +161,21 @@ function clearDisplay(src, ~)
     setStatus(app, {'已清空。'});
 end
 
+function refreshInitialMap(src, ~)
+    fig = ancestor(src, 'figure');
+    drawInitialMap(fig);
+end
+
 function drawInitialMap(fig)
     app = guidata(fig);
-    [mapData, starts, goals, params] = CreateMap();
+    config = struct('mapSize', [150, 50], ...
+        'obstacleCount', selectedObstacleCount(app), ...
+        'randomSeed', 20260602 + selectedObstacleCount(app));
+    [mapData, starts, goals, params] = CreateMap(config);
+    cla(app.ax);
     axes(app.ax); %#ok<LAXES>
     DrawMap(mapData, starts, goals, params);
+    title(app.ax, sprintf('随机障碍物地图: %d obstacles', size(mapData.obstacles, 1)));
 end
 
 function value = readScalar(handle, defaultValue)
@@ -154,6 +189,9 @@ function lines = buildStatusLines(results)
     if results.success
         lines = { ...
             '运行成功', ...
+            sprintf('地图大小: %.0f x %.0f m', results.map.size(1), results.map.size(2)), ...
+            sprintf('障碍物数量: %d', size(results.map.obstacles, 1)), ...
+            sprintf('机器人尺寸: 1m x 2m'), ...
             sprintf('路径总代价: %.3f', results.stats.cost), ...
             sprintf('最大完成时刻: %d', results.stats.makespan), ...
             sprintf('高层扩展节点: %d', results.stats.highLevelExpanded), ...
@@ -170,6 +208,12 @@ function lines = buildStatusLines(results)
     end
 end
 
+function count = selectedObstacleCount(app)
+    values = [10, 20, 30];
+    idx = get(app.obstaclePopup, 'Value');
+    count = values(idx);
+end
+
 function setStatus(app, lines)
     set(app.statusText, 'String', lines);
 end
@@ -183,6 +227,20 @@ function state = stateAtTime(states, t)
         state = states(idx, :);
         state(4) = t;
     end
+end
+
+function [corners, rear, front] = vehicleGeometry(state, params)
+    halfW = params.carWidth / 2;
+    local = [ ...
+        params.LF,  halfW; ...
+        params.LF, -halfW; ...
+       -params.LB, -halfW; ...
+       -params.LB,  halfW];
+    yaw = state(3);
+    rot = [cos(yaw), -sin(yaw); sin(yaw), cos(yaw)];
+    corners = local * rot.' + state(1:2);
+    front = mean(corners(1:2, :), 1);
+    rear = mean(corners(3:4, :), 1);
 end
 
 function out = splitLines(text)

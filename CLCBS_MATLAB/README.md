@@ -30,6 +30,10 @@ gui_main();
 
 Notes:
 
+- The default map is `150m x 50m`; each robot footprint is `1m x 2m`.
+- `CreateMap.m` generates random circular obstacles and rejects obstacles too close to starts/goals. It also checks grid reachability so every robot has a feasible start-to-goal corridor.
+- `gui_main.m` provides a dropdown to choose `10`, `20`, or `30` random obstacles.
+- GUI animation updates existing vehicle graphics handles frame-by-frame instead of clearing and redrawing the axes, avoiding flicker during playback.
 - The high-level planner keeps the CL-CBS conflict tree, body-conflict detection, constraint generation, and constrained low-level replanning workflow.
 - The low-level planner keeps the car-like forward/reverse motion primitives, Dubins-style heuristic, and spatiotemporal constraint checks.
 - The original C++ implementation uses OMPL Reeds-Shepp analytic expansion. This MATLAB version avoids external dependencies and uses an approximate Dubins-style connector near the goal.
