@@ -126,7 +126,9 @@ function [mapData, starts, goals, params] = loadScenario(scenarioFile, mapFile)
     starts = raw.starts;
     goals = raw.goals;
 
-    [~, ~, ~, params] = CreateMap();
+    emptyConfig = struct();
+    emptyConfig.obstacles = zeros(0, 3);
+    [~, ~, ~, params] = CreateMap(emptyConfig);
     if isfield(raw, 'paramsVector')
         params = unpackParams(raw.paramsVector, params);
     end
@@ -171,7 +173,40 @@ function saveResults(results, fig, cfg)
         end
         errorData = [results.error.time, results.error.errors];
         writeMatrixCompat(fullfile(cfg.outputDir, 'formation_error.csv'), errorData);
+        saveErrorFigure(results, cfg.outputDir);
         saveFigure(results, fig, cfg.outputDir);
+    end
+end
+
+function saveErrorFigure(results, outputDir)
+    if ~isfield(results, 'error') || isempty(results.error.time) || isempty(results.error.errors)
+        return;
+    end
+
+    fig = [];
+    try
+        fig = figure('Name', 'Formation error', 'Visible', 'off');
+        ax = axes('Parent', fig);
+        hold(ax, 'on');
+        grid(ax, 'on');
+        for k = 1:size(results.error.errors, 2)
+            followerId = results.error.followerIdx(k);
+            plot(ax, results.error.time, results.error.errors(:, k), ...
+                'LineWidth', 1.3, 'DisplayName', sprintf('follower %d', followerId));
+        end
+        plot(ax, results.error.time, mean(results.error.errors, 2), ...
+            'k--', 'LineWidth', 1.8, 'DisplayName', 'mean error');
+        xlabel(ax, 'time step');
+        ylabel(ax, 'formation error [m]');
+        title(ax, 'Follower Formation Error');
+        legend(ax, 'Location', 'best');
+        saveas(fig, fullfile(outputDir, 'formation_error_curve.png'));
+    catch err
+        warning('CLCBS:SaveErrorFigureFailed', 'Failed to save error curve: %s', err.message);
+    end
+
+    if ~isempty(fig) && ishandle(fig)
+        close(fig);
     end
 end
 

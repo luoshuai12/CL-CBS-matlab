@@ -2,6 +2,7 @@ function gui_main()
 %GUI_MAIN MATLAB GUI for configuring and visualizing the CL-CBS demo.
 
     rootDir = fileparts(mfilename('fullpath'));
+    addpath(rootDir);
     addpath(fullfile(rootDir, 'map'));
     addpath(fullfile(rootDir, 'high_level'));
     addpath(fullfile(rootDir, 'low_level'));
@@ -92,13 +93,14 @@ function runSimulation(src, ~)
     cfg.params.goalTolerance = readScalar(app.goalToleranceEdit, 2.5);
 
     try
-        app.results = main(cfg);
+        app.results = runMainInProject(app.rootDir, cfg);
         guidata(fig, app);
         cla(app.ax);
         axes(app.ax); %#ok<LAXES>
         DrawMap(app.results.map, app.results.starts, app.results.goals, app.results.params);
         if app.results.success
             DrawTrajectory(app.results.solution, app.results.params);
+            plotErrorCurve(app.results);
         end
         setStatus(app, buildStatusLines(app.results));
     catch err
@@ -168,14 +170,25 @@ end
 
 function drawInitialMap(fig)
     app = guidata(fig);
-    config = struct('mapSize', [150, 50], ...
-        'obstacleCount', selectedObstacleCount(app), ...
-        'randomSeed', 20260602 + selectedObstacleCount(app));
+    config = struct();
+    config.mapSize = [150, 50];
+    config.obstacleCount = selectedObstacleCount(app);
+    config.randomSeed = 20260602 + selectedObstacleCount(app);
     [mapData, starts, goals, params] = CreateMap(config);
     cla(app.ax);
     axes(app.ax); %#ok<LAXES>
     DrawMap(mapData, starts, goals, params);
     title(app.ax, sprintf('随机障碍物地图: %d obstacles', size(mapData.obstacles, 1)));
+end
+
+function results = runMainInProject(rootDir, cfg)
+    oldDir = pwd;
+    cleanupObj = onCleanup(@() cd(oldDir)); %#ok<NASGU>
+    addpath(rootDir);
+    cd(rootDir);
+    rehash;
+    clear('main');
+    results = main(cfg);
 end
 
 function value = readScalar(handle, defaultValue)
@@ -205,6 +218,38 @@ function lines = buildStatusLines(results)
             sprintf('高层扩展节点: %d', results.stats.highLevelExpanded), ...
             sprintf('低层扩展节点: %d', results.stats.lowLevelExpanded), ...
             sprintf('运行时间: %.3f s', results.stats.runtime)};
+    end
+end
+
+function plotErrorCurve(results)
+    if ~isfield(results, 'error') || isempty(results.error.time) || isempty(results.error.errors)
+        return;
+    end
+
+    fig = figure('Name', 'Formation Error Curve', 'NumberTitle', 'off');
+    ax = axes('Parent', fig);
+    hold(ax, 'on');
+    grid(ax, 'on');
+
+    for k = 1:size(results.error.errors, 2)
+        followerId = results.error.followerIdx(k);
+        plot(ax, results.error.time, results.error.errors(:, k), ...
+            'LineWidth', 1.5, 'DisplayName', sprintf('follower %d', followerId));
+    end
+
+    meanCurve = mean(results.error.errors, 2);
+    plot(ax, results.error.time, meanCurve, 'k--', 'LineWidth', 2.0, ...
+        'DisplayName', 'mean error');
+    xlabel(ax, 'time step');
+    ylabel(ax, 'formation error [m]');
+    title(ax, 'Follower Formation Error');
+    legend(ax, 'Location', 'best');
+
+    if isfield(results, 'outputDir') && exist(results.outputDir, 'dir')
+        try
+            saveas(fig, fullfile(results.outputDir, 'formation_error_curve.png'));
+        catch
+        end
     end
 end
 
