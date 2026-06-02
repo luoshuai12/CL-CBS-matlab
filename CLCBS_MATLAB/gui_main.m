@@ -78,7 +78,7 @@ function activateProjectPath(rootDir)
     addpath(fullfile(rootDir, 'utils'), '-begin');
     clear CLCBS_RunSimulation CreateMap CBS HybridAstar DubinsHeuristic DubinsPlanner CheckConstraint;
     clear DetectConflict GenerateChild ComputeCost ComputeError CollisionCheck;
-    clear DrawMap DrawTrajectory DrawVehicle InterpolatePath;
+    clear DefaultScenario DrawMap DrawTrajectory DrawVehicle InterpolatePath;
     rehash;
 end
 
@@ -188,7 +188,7 @@ function drawInitialMap(fig)
     cla(app.ax);
     axes(app.ax); %#ok<LAXES>
     DrawMap(mapData, starts, goals, params);
-    title(app.ax, sprintf('随机障碍物地图: %d obstacles', size(mapData.obstacles, 1)));
+    title(app.ax, sprintf('七机器人随机障碍物地图: %d obstacles', size(mapData.obstacles, 1)));
 end
 
 function value = readScalar(handle, defaultValue)
@@ -203,6 +203,7 @@ function lines = buildStatusLines(results)
         lines = { ...
             '运行成功', ...
             sprintf('地图大小: %.0f x %.0f m', results.map.size(1), results.map.size(2)), ...
+            sprintf('机器人数量: %d', size(results.starts, 1)), ...
             sprintf('障碍物数量: %d', size(results.map.obstacles, 1)), ...
             sprintf('机器人尺寸: 1m x 2m'), ...
             sprintf('路径总代价: %.3f', results.stats.cost), ...

@@ -6,7 +6,7 @@ This directory contains a MATLAB port of the CL-CBS demo following the requested
 CLCBS_MATLAB/
 ├── main.m
 ├── gui_main.m
-├── map/CreateMap.m
+├── map/{CreateMap,DefaultScenario}.m
 ├── high_level/{CBS,DetectConflict,GenerateChild,ComputeCost}.m
 ├── low_level/{HybridAstar,DubinsHeuristic,DubinsPlanner,CheckConstraint}.m
 ├── utils/{CollisionCheck,InterpolatePath,DrawMap,DrawVehicle,DrawTrajectory,ComputeError}.m
