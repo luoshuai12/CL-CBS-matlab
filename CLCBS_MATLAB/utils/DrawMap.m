@@ -31,7 +31,7 @@ function ax = DrawMap(mapData, starts, goals, params)
     if nargin >= 2 && ~isempty(starts)
         plot(ax, starts(:, 1), starts(:, 2), 'go', 'MarkerFaceColor', 'g', 'MarkerSize', 7);
         for i = 1:size(starts, 1)
-            text(ax, starts(i, 1), starts(i, 2) + 0.8, sprintf('S%d', i), ...
+            text(ax, starts(i, 1), starts(i, 2) + 0.8, sprintf('S%d', i - 1), ...
                 'Color', [0, 0.45, 0], 'HorizontalAlignment', 'center');
         end
     end
@@ -39,7 +39,7 @@ function ax = DrawMap(mapData, starts, goals, params)
     if nargin >= 3 && ~isempty(goals)
         plot(ax, goals(:, 1), goals(:, 2), 'rx', 'LineWidth', 1.5, 'MarkerSize', 9);
         for i = 1:size(goals, 1)
-            text(ax, goals(i, 1), goals(i, 2) + 0.8, sprintf('G%d', i), ...
+            text(ax, goals(i, 1), goals(i, 2) + 0.8, sprintf('G%d', i - 1), ...
                 'Color', [0.75, 0, 0], 'HorizontalAlignment', 'center');
         end
     end

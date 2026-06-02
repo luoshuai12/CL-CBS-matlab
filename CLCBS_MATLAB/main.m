@@ -109,6 +109,8 @@ function cfg = defaultRunConfig(rootDir)
     cfg.obstacleCount = 10;
     cfg.randomSeed = 20260602;
     cfg.params = struct();
+    cfg.params.maxHighLevelIterations = 240;
+    cfg.params.maxLowLevelNodes = 90000;
 end
 
 function [mapData, starts, goals, params] = loadScenario(scenarioFile, mapFile)

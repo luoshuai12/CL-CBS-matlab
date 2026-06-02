@@ -76,6 +76,12 @@ function cfg = applyDefaults(cfg, rootDir)
     if ~isfield(cfg, 'params')
         cfg.params = struct();
     end
+    if ~isfield(cfg.params, 'maxHighLevelIterations')
+        cfg.params.maxHighLevelIterations = 240;
+    end
+    if ~isfield(cfg.params, 'maxLowLevelNodes')
+        cfg.params.maxLowLevelNodes = 90000;
+    end
 end
 
 function saveResults(results)
