@@ -1,0 +1,55 @@
+function style = VisualizationStyle(nAgents)
+%VISUALIZATIONSTYLE Centralized high-contrast plotting style.
+
+    if nargin < 1
+        nAgents = 7;
+    end
+
+    baseColors = [ ...
+        0.000, 0.258, 0.710; ... % blue
+        0.835, 0.000, 0.000; ... % red
+        0.000, 0.520, 0.120; ... % green
+        0.430, 0.000, 0.620; ... % purple
+        0.915, 0.380, 0.000; ... % orange
+        0.000, 0.500, 0.600; ... % teal
+        0.560, 0.300, 0.000];    % brown
+
+    if nAgents <= size(baseColors, 1)
+        colors = baseColors(1:nAgents, :);
+    else
+        colors = zeros(nAgents, 3);
+        for i = 1:nAgents
+            colors(i, :) = baseColors(mod(i - 1, size(baseColors, 1)) + 1, :);
+        end
+    end
+
+    lineStyles = {'-', '--', '-.', ':', '-', '--', '-.'};
+    roles = repmat({'Follower'}, 1, nAgents);
+    roleNames = repmat({'Follower'}, 1, nAgents);
+    for i = 1:min(3, nAgents)
+        roles{i} = 'Leader';
+        roleNames{i} = 'Leader';
+    end
+
+    labels = cell(1, nAgents);
+    for i = 1:nAgents
+        labels{i} = sprintf('%s%d', roleNames{i}, i - 1);
+    end
+
+    style = struct();
+    style.colors = colors;
+    style.lineStyles = lineStyles;
+    style.labels = labels;
+    style.roles = roles;
+    style.leaderIdx = 1:min(3, nAgents);
+    style.followerIdx = (min(3, nAgents) + 1):nAgents;
+    style.formationEdges = defaultFormationEdges(nAgents);
+    style.pathLineWidth = 2.2;
+    style.historyLineWidth = 1.4;
+end
+
+function edges = defaultFormationEdges(nAgents)
+    template = [1, 2; 1, 3; 2, 4; 3, 5; 4, 6; 5, 7];
+    keep = template(:, 1) <= nAgents & template(:, 2) <= nAgents;
+    edges = template(keep, :);
+end

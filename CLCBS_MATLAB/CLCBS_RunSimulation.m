@@ -56,7 +56,7 @@ function activateProjectPath(rootDir)
     addpath(fullfile(rootDir, 'utils'), '-begin');
     clear CreateMap CBS HybridAstar DubinsHeuristic DubinsPlanner CheckConstraint;
     clear DetectConflict GenerateChild ComputeCost ComputeError CollisionCheck;
-    clear DefaultScenario DrawMap DrawTrajectory DrawVehicle InterpolatePath;
+    clear DefaultScenario VisualizationStyle DrawMap DrawTrajectory DrawVehicle InterpolatePath;
     rehash;
 end
 

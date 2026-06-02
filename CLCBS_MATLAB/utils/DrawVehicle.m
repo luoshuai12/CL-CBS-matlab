@@ -13,12 +13,13 @@ function h = DrawVehicle(state, params, color, faceAlpha, ax)
 
     corners = vehicleCorners(state, params);
     h.body = patch(ax, corners(:, 1), corners(:, 2), color, ...
-        'FaceAlpha', faceAlpha, 'EdgeColor', color, 'LineWidth', 1.1);
+        'FaceAlpha', faceAlpha, 'EdgeColor', color, 'LineWidth', 1.1, ...
+        'HandleVisibility', 'off');
 
     front = mean(corners(1:2, :), 1);
     rear = mean(corners(3:4, :), 1);
     h.heading = plot(ax, [rear(1), front(1)], [rear(2), front(2)], ...
-        '-', 'Color', color, 'LineWidth', 1.4);
+        '-', 'Color', color, 'LineWidth', 1.4, 'HandleVisibility', 'off');
 end
 
 function corners = vehicleCorners(state, params)

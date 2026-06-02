@@ -78,7 +78,7 @@ function activateProjectPath(rootDir)
     addpath(fullfile(rootDir, 'utils'), '-begin');
     clear CLCBS_RunSimulation CreateMap CBS HybridAstar DubinsHeuristic DubinsPlanner CheckConstraint;
     clear DetectConflict GenerateChild ComputeCost ComputeError CollisionCheck;
-    clear DefaultScenario DrawMap DrawTrajectory DrawVehicle InterpolatePath;
+    clear DefaultScenario VisualizationStyle DrawMap DrawTrajectory DrawVehicle InterpolatePath;
     rehash;
 end
 
@@ -136,24 +136,40 @@ function playAnimation(src, ~)
     cla(app.ax);
     axes(app.ax); %#ok<LAXES>
     DrawMap(results.map, results.starts, results.goals, results.params);
-    colors = lines(numel(results.solution));
+    axis(app.ax, 'equal');
+    style = VisualizationStyle(numel(results.solution));
+    colors = style.colors;
     vehicleHandles = repmat(struct('body', [], 'heading', []), numel(results.solution), 1);
+    pathHandles = zeros(numel(results.solution), 1);
     for i = 1:numel(results.solution)
-        plot(app.ax, results.solution{i}.states(:, 1), results.solution{i}.states(:, 2), ...
-            ':', 'Color', colors(i, :), 'LineWidth', 1.0);
+        lineStyle = style.lineStyles{mod(i - 1, numel(style.lineStyles)) + 1};
+        pathHandles(i) = plot(app.ax, results.solution{i}.states(:, 1), ...
+            results.solution{i}.states(:, 2), lineStyle, 'Color', colors(i, :), ...
+            'LineWidth', style.historyLineWidth, 'DisplayName', style.labels{i});
         vehicleHandles(i) = DrawVehicle(stateAtTime(results.solution{i}.states, 0), ...
             results.params, colors(i, :), 0.55, app.ax);
     end
+    formationHandles = initFormationEdges(app.ax, results.solution, style);
+    timeText = text(app.ax, 0.985, 0.955, 't = 0', 'Units', 'normalized', ...
+        'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', ...
+        'FontWeight', 'bold', 'BackgroundColor', [1, 1, 1], ...
+        'Margin', 3, 'EdgeColor', [0.4, 0.4, 0.4], ...
+        'HandleVisibility', 'off');
+    legend(app.ax, pathHandles, style.labels, 'Location', 'eastoutside');
+    title(app.ax, 'CL-CBS formation animation');
 
     for t = 0:maxT
+        currentStates = zeros(numel(results.solution), 4);
         for i = 1:numel(results.solution)
             state = stateAtTime(results.solution{i}.states, t);
+            currentStates(i, :) = state;
             [corners, rear, front] = vehicleGeometry(state, results.params);
             set(vehicleHandles(i).body, 'XData', corners(:, 1), 'YData', corners(:, 2));
             set(vehicleHandles(i).heading, 'XData', [rear(1), front(1)], ...
                 'YData', [rear(2), front(2)]);
         end
-        title(app.ax, sprintf('CL-CBS animation, t = %d', t));
+        updateFormationEdges(formationHandles, currentStates, style);
+        set(timeText, 'String', sprintf('t = %d', t));
         try
             drawnow limitrate;
         catch
@@ -251,6 +267,30 @@ function plotErrorCurve(results)
             saveas(fig, fullfile(results.outputDir, 'formation_error_curve.png'));
         catch
         end
+    end
+end
+
+function handles = initFormationEdges(ax, solution, style)
+    edges = style.formationEdges;
+    handles = zeros(size(edges, 1), 1);
+    for k = 1:size(edges, 1)
+        a = edges(k, 1);
+        b = edges(k, 2);
+        p1 = solution{a}.states(1, 1:2);
+        p2 = solution{b}.states(1, 1:2);
+        handles(k) = plot(ax, [p1(1), p2(1)], [p1(2), p2(2)], 'k--', ...
+            'LineWidth', 1.1, 'Color', [0.15, 0.15, 0.15], ...
+            'HandleVisibility', 'off');
+    end
+end
+
+function updateFormationEdges(handles, states, style)
+    edges = style.formationEdges;
+    for k = 1:size(edges, 1)
+        a = edges(k, 1);
+        b = edges(k, 2);
+        set(handles(k), 'XData', [states(a, 1), states(b, 1)], ...
+            'YData', [states(a, 2), states(b, 2)]);
     end
 end
 
