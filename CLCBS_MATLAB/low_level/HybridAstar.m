@@ -20,7 +20,7 @@ function [plan, success, stats] = HybridAstar(mapData, start, goal, constraints,
     end
 
     startKey = stateKey(startState, params);
-    startNode = makeNode(startState, 6, 0, heuristicCost(startState, goalState, params), startKey);
+    startNode = makeNode(startState, 6, 0, DubinsHeuristic(startState, goalState, params), startKey);
     open = startNode;
 
     bestG = containers.Map('KeyType', 'char', 'ValueType', 'double');
@@ -70,7 +70,7 @@ function [plan, success, stats] = HybridAstar(mapData, start, goal, constraints,
             tentativeG = current.g + nb.cost;
             if ~isKey(bestG, nbKey) || tentativeG < bestG(nbKey)
                 bestG(nbKey) = tentativeG;
-                fScore = tentativeG + heuristicCost(nb.state, goalState, params);
+                fScore = tentativeG + DubinsHeuristic(nb.state, goalState, params);
                 open(end + 1) = makeNode(nb.state, nb.action, tentativeG, fScore, nbKey); %#ok<AGROW>
                 cameFrom(nbKey) = struct('parentKey', current.key, ...
                     'parentState', current.state, 'action', nb.action, ...
@@ -149,12 +149,6 @@ function valid = stateValid(state, mapData, constraints, params)
     valid = state(4) <= params.maxTime && ...
         ~CollisionCheck(state, mapData, params) && ...
         CheckConstraint(state, constraints, params);
-end
-
-function h = heuristicCost(state, goalState, params)
-    euclideanCost = hypot(goalState(1) - state(1), goalState(2) - state(2));
-    headingCost = params.r * abs(wrapToPiLocal(goalState(3) - state(3)));
-    h = max(euclideanCost, headingCost);
 end
 
 function tf = isGoal(state, goalState, params)

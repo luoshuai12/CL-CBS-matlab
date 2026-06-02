@@ -16,27 +16,9 @@ function handles = DrawTrajectory(solution, params)
         handles(i) = plot(ax, states(:, 1), states(:, 2), '-', ...
             'Color', colors(i, :), 'LineWidth', 1.8);
         plot(ax, states(:, 1), states(:, 2), '.', 'Color', colors(i, :), 'MarkerSize', 7);
-        drawFootprint(ax, states(1, :), params, colors(i, :), 0.18);
-        drawFootprint(ax, states(end, :), params, colors(i, :), 0.35);
+        DrawVehicle(states(1, :), params, colors(i, :), 0.18, ax);
+        DrawVehicle(states(end, :), params, colors(i, :), 0.35, ax);
     end
     labels = arrayfun(@(idx) sprintf('agent %d', idx), 1:numel(solution), 'UniformOutput', false);
     legend(ax, handles, labels, 'Location', 'bestoutside');
-end
-
-function drawFootprint(ax, state, params, color, alpha)
-    corners = vehicleCorners(state, params);
-    patch(ax, corners(:, 1), corners(:, 2), color, ...
-        'FaceAlpha', alpha, 'EdgeColor', color, 'LineWidth', 1.0);
-end
-
-function corners = vehicleCorners(state, params)
-    halfW = params.carWidth / 2;
-    local = [ ...
-        params.LF,  halfW; ...
-        params.LF, -halfW; ...
-       -params.LB, -halfW; ...
-       -params.LB,  halfW];
-    yaw = state(3);
-    rot = [cos(yaw), -sin(yaw); sin(yaw), cos(yaw)];
-    corners = local * rot.' + state(1:2);
 end

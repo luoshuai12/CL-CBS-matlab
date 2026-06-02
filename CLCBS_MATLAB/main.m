@@ -1,9 +1,17 @@
-function results = main()
+function results = main(userConfig)
 %MAIN Entry point for the MATLAB CL-CBS port.
 %   Run from this directory with:
 %       results = main();
+%
+%   Optional:
+%       cfg.showFigure = false;
+%       cfg.saveResults = true;
+%       cfg.params.maxHighLevelIterations = 120;
+%       results = main(cfg);
 
-    clc;
+    if nargin < 1
+        userConfig = struct();
+    end
 
     rootDir = fileparts(mfilename('fullpath'));
     addpath(fullfile(rootDir, 'map'));
@@ -11,12 +19,29 @@ function results = main()
     addpath(fullfile(rootDir, 'low_level'));
     addpath(fullfile(rootDir, 'utils'));
 
-    scenarioFile = fullfile(rootDir, 'data', 'scenario.mat');
-    if exist(scenarioFile, 'file')
-        [mapData, starts, goals, params] = loadScenario(scenarioFile);
+    cfg = defaultRunConfig(rootDir);
+    cfg = mergeStruct(cfg, userConfig);
+
+    if exist(cfg.scenarioFile, 'file') && exist(cfg.mapFile, 'file')
+        [mapData, starts, goals, params] = loadScenario(cfg.scenarioFile, cfg.mapFile);
     else
-        [mapData, starts, goals, params] = CreateMap();
-        saveScenario(scenarioFile, mapData, starts, goals, params);
+        createConfig = struct();
+        if isfield(cfg, 'params')
+            createConfig.params = cfg.params;
+        end
+        [mapData, starts, goals, params] = CreateMap(createConfig);
+        saveMap(cfg.mapFile, mapData);
+        saveScenario(cfg.scenarioFile, starts, goals, params);
+    end
+
+    if isfield(cfg, 'params')
+        params = mergeStruct(params, cfg.params);
+        params.xyResolution = params.r * params.deltat;
+        params.yawResolution = params.deltat;
+    end
+
+    if ~exist(cfg.outputDir, 'dir')
+        mkdir(cfg.outputDir);
     end
 
     fprintf('== CL-CBS MATLAB demo ==\n');
@@ -35,6 +60,15 @@ function results = main()
     results.solution = solution;
     results.success = success;
     results.stats = stats;
+    results.outputDir = cfg.outputDir;
+
+    if success
+        leaderIdx = pickField(cfg, 'leaderIdx', 1);
+        followerIdx = pickField(cfg, 'followerIdx', setdiff(1:size(starts, 1), leaderIdx));
+        results.error = ComputeError(solution, starts, leaderIdx, followerIdx);
+    else
+        results.error = ComputeError({}, starts, 1, []);
+    end
 
     if success
         fprintf('Success. cost=%.3f, makespan=%d, high-level expanded=%d, runtime=%.3fs\n', ...
@@ -44,28 +78,44 @@ function results = main()
             stats.highLevelExpanded, stats.runtime);
     end
 
-    figure('Name', 'CL-CBS MATLAB');
-    DrawMap(mapData, starts, goals, params);
-    if success
-        DrawTrajectory(solution, params);
+    fig = [];
+    if cfg.showFigure
+        fig = figure('Name', 'CL-CBS MATLAB');
+        DrawMap(mapData, starts, goals, params);
+        if success
+            DrawTrajectory(solution, params);
+        end
+        title('Car-Like Conflict-Based Search (MATLAB port)');
     end
-    title('Car-Like Conflict-Based Search (MATLAB port)');
+
+    if cfg.saveResults
+        saveResults(results, fig, cfg);
+    end
 end
 
-function [mapData, starts, goals, params] = loadScenario(filename)
-    raw = load(filename);
-    if isfield(raw, 'mapData')
-        mapData = raw.mapData;
-        starts = raw.starts;
-        goals = raw.goals;
-        params = raw.params;
-        return;
+function cfg = defaultRunConfig(rootDir)
+    cfg = struct();
+    cfg.dataDir = fullfile(rootDir, 'data');
+    cfg.mapFile = fullfile(cfg.dataDir, 'map1.mat');
+    cfg.scenarioFile = fullfile(cfg.dataDir, 'scenario1.mat');
+    cfg.outputDir = fullfile(rootDir, 'result', 'save_results');
+    cfg.showFigure = true;
+    cfg.saveResults = true;
+    cfg.params = struct();
+end
+
+function [mapData, starts, goals, params] = loadScenario(scenarioFile, mapFile)
+    mapRaw = load(mapFile);
+    if isfield(mapRaw, 'mapData')
+        mapData = mapRaw.mapData;
+    else
+        mapData = struct();
+        mapData.size = mapRaw.mapSize(:).';
+        mapData.obstacles = mapRaw.obstacles;
+        mapData.dynamicObstacles = [];
     end
 
-    mapData = struct();
-    mapData.size = raw.mapSize(:).';
-    mapData.obstacles = raw.obstacles;
-    mapData.dynamicObstacles = [];
+    raw = load(scenarioFile);
     starts = raw.starts;
     goals = raw.goals;
 
@@ -75,15 +125,79 @@ function [mapData, starts, goals, params] = loadScenario(filename)
     end
 end
 
-function saveScenario(filename, mapData, starts, goals, params)
+function saveMap(filename, mapData)
     outDir = fileparts(filename);
     if ~exist(outDir, 'dir')
         mkdir(outDir);
     end
     mapSize = mapData.size; %#ok<NASGU>
     obstacles = mapData.obstacles; %#ok<NASGU>
+    save(filename, 'mapSize', 'obstacles', 'mapData');
+end
+
+function saveScenario(filename, starts, goals, params)
+    outDir = fileparts(filename);
+    if ~exist(outDir, 'dir')
+        mkdir(outDir);
+    end
     paramsVector = packParams(params); %#ok<NASGU>
-    save(filename, 'mapSize', 'obstacles', 'starts', 'goals', 'paramsVector');
+    save(filename, 'starts', 'goals', 'paramsVector');
+end
+
+function saveResults(results, fig, cfg)
+    if ~exist(cfg.outputDir, 'dir')
+        mkdir(cfg.outputDir);
+    end
+
+    save(fullfile(cfg.outputDir, 'clcbs_results.mat'), 'results');
+
+    statsRow = [results.success, results.stats.cost, results.stats.makespan, ...
+        results.stats.highLevelExpanded, results.stats.lowLevelExpanded, ...
+        results.stats.conflictsResolved, results.stats.runtime, ...
+        results.error.meanError, results.error.maxError];
+    writeMatrixCompat(fullfile(cfg.outputDir, 'stats_summary.csv'), statsRow);
+
+    if results.success
+        for i = 1:numel(results.solution)
+            pathData = results.solution{i}.states;
+            writeMatrixCompat(fullfile(cfg.outputDir, sprintf('agent_%02d_path.csv', i)), pathData);
+        end
+        errorData = [results.error.time, results.error.errors];
+        writeMatrixCompat(fullfile(cfg.outputDir, 'formation_error.csv'), errorData);
+        saveFigure(results, fig, cfg.outputDir);
+    end
+end
+
+function saveFigure(results, fig, outputDir)
+    createdFigure = false;
+    try
+        if isempty(fig) || ~ishandle(fig)
+            fig = figure('Name', 'CL-CBS saved result', 'Visible', 'off');
+            DrawMap(results.map, results.starts, results.goals, results.params);
+            DrawTrajectory(results.solution, results.params);
+            title('Car-Like Conflict-Based Search (MATLAB port)');
+            createdFigure = true;
+        end
+        saveas(fig, fullfile(outputDir, 'trajectory.png'));
+    catch err
+        warning('CLCBS:SaveFigureFailed', 'Failed to save trajectory figure: %s', err.message);
+        if createdFigure && exist('fig', 'var') && ishandle(fig)
+            close(fig);
+        end
+        return;
+    end
+
+    if createdFigure
+        close(fig);
+    end
+end
+
+function writeMatrixCompat(filename, data)
+    try
+        writematrix(data, filename);
+    catch
+        csvwrite(filename, data);
+    end
 end
 
 function params = unpackParams(v, params)
@@ -106,4 +220,28 @@ function v = packParams(params)
         params.constraintWaitTime, params.maxHighLevelIterations, ...
         params.maxLowLevelNodes, params.maxTime, params.goalTolerance, ...
         params.yawTolerance];
+end
+
+function value = pickField(s, fieldName, defaultValue)
+    if isstruct(s) && isfield(s, fieldName)
+        value = s.(fieldName);
+    else
+        value = defaultValue;
+    end
+end
+
+function merged = mergeStruct(base, patch)
+    merged = base;
+    if isempty(patch)
+        return;
+    end
+    names = fieldnames(patch);
+    for i = 1:numel(names)
+        f = names{i};
+        if isstruct(patch.(f)) && isfield(merged, f) && isstruct(merged.(f))
+            merged.(f) = mergeStruct(merged.(f), patch.(f));
+        else
+            merged.(f) = patch.(f);
+        end
+    end
 end
