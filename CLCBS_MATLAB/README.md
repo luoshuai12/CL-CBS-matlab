@@ -9,7 +9,7 @@ CLCBS_MATLAB/
 ├── map/{CreateMap,DefaultScenario}.m
 ├── high_level/{CBS,DetectConflict,GenerateChild,ComputeCost}.m
 ├── low_level/{HybridAstar,DubinsHeuristic,DubinsPlanner,CheckConstraint}.m
-├── utils/{CollisionCheck,InterpolatePath,DrawMap,DrawVehicle,DrawTrajectory,ComputeError,VisualizationStyle}.m
+├── utils/{CollisionCheck,InterpolatePath,DrawMap,DrawVehicle,DrawTrajectory,ComputeError,VisualizationStyle,PlotFormationError}.m
 ├── data/{map1,scenario1}.mat
 └── result/save_results/
 ```
@@ -39,6 +39,7 @@ Notes:
 - GUI animation updates existing vehicle graphics handles frame-by-frame instead of clearing and redrawing the axes, avoiding flicker during playback.
 - Visualization uses high-contrast colors, role-aware labels (`Leader/Follower`), simplified legends, obstacle outlines, and formation-edge dashed lines.
 - After a successful GUI run, the follower formation error curve is displayed and also saved as `formation_error_curve.png`.
+- Formation error plots use compact `F1/F2/...` labels, high-contrast follower colors, a bold black dashed mean-error line, light grid, tight axes, and a shaded high-error phase.
 - The high-level planner keeps the CL-CBS conflict tree, body-conflict detection, constraint generation, and constrained low-level replanning workflow.
 - The low-level planner keeps the car-like forward/reverse motion primitives, Dubins-style heuristic, and spatiotemporal constraint checks.
 - The original C++ implementation uses OMPL Reeds-Shepp analytic expansion. This MATLAB version avoids external dependencies and uses an approximate Dubins-style connector near the goal.

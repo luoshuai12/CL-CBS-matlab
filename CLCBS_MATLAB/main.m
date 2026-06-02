@@ -189,19 +189,7 @@ function saveErrorFigure(results, outputDir)
     try
         fig = figure('Name', 'Formation error', 'Visible', 'off');
         ax = axes('Parent', fig);
-        hold(ax, 'on');
-        grid(ax, 'on');
-        for k = 1:size(results.error.errors, 2)
-            followerId = results.error.followerIdx(k);
-            plot(ax, results.error.time, results.error.errors(:, k), ...
-                'LineWidth', 1.3, 'DisplayName', sprintf('follower %d', followerId));
-        end
-        plot(ax, results.error.time, mean(results.error.errors, 2), ...
-            'k--', 'LineWidth', 1.8, 'DisplayName', 'mean error');
-        xlabel(ax, 'time step');
-        ylabel(ax, 'formation error [m]');
-        title(ax, 'Follower Formation Error');
-        legend(ax, 'Location', 'best');
+        PlotFormationError(results.error, ax);
         saveas(fig, fullfile(outputDir, 'formation_error_curve.png'));
     catch err
         warning('CLCBS:SaveErrorFigureFailed', 'Failed to save error curve: %s', err.message);

@@ -78,7 +78,7 @@ function activateProjectPath(rootDir)
     addpath(fullfile(rootDir, 'utils'), '-begin');
     clear CLCBS_RunSimulation CreateMap CBS HybridAstar DubinsHeuristic DubinsPlanner CheckConstraint;
     clear DetectConflict GenerateChild ComputeCost ComputeError CollisionCheck;
-    clear DefaultScenario VisualizationStyle DrawMap DrawTrajectory DrawVehicle InterpolatePath;
+    clear DefaultScenario VisualizationStyle PlotFormationError DrawMap DrawTrajectory DrawVehicle InterpolatePath;
     rehash;
 end
 
@@ -264,22 +264,7 @@ function plotErrorCurve(results)
 
     fig = figure('Name', 'Formation Error Curve', 'NumberTitle', 'off');
     ax = axes('Parent', fig);
-    hold(ax, 'on');
-    grid(ax, 'on');
-
-    for k = 1:size(results.error.errors, 2)
-        followerId = results.error.followerIdx(k);
-        plot(ax, results.error.time, results.error.errors(:, k), ...
-            'LineWidth', 1.5, 'DisplayName', sprintf('follower %d', followerId));
-    end
-
-    meanCurve = mean(results.error.errors, 2);
-    plot(ax, results.error.time, meanCurve, 'k--', 'LineWidth', 2.0, ...
-        'DisplayName', 'mean error');
-    xlabel(ax, 'time step');
-    ylabel(ax, 'formation error [m]');
-    title(ax, 'Follower Formation Error');
-    legend(ax, 'Location', 'best');
+    PlotFormationError(results.error, ax);
 
     if isfield(results, 'outputDir') && exist(results.outputDir, 'dir')
         try
