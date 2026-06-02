@@ -2,13 +2,7 @@ function gui_main()
 %GUI_MAIN MATLAB GUI for configuring and visualizing the CL-CBS demo.
 
     rootDir = fileparts(mfilename('fullpath'));
-    addpath(rootDir, '-begin');
-    addpath(fullfile(rootDir, 'map'), '-begin');
-    addpath(fullfile(rootDir, 'high_level'), '-begin');
-    addpath(fullfile(rootDir, 'low_level'), '-begin');
-    addpath(fullfile(rootDir, 'utils'), '-begin');
-    clear CreateMap CBS ComputeError DrawMap DrawTrajectory DrawVehicle;
-    rehash;
+    activateProjectPath(rootDir);
 
     app = struct();
     app.rootDir = rootDir;
@@ -76,6 +70,18 @@ function gui_main()
     drawInitialMap(fig);
 end
 
+function activateProjectPath(rootDir)
+    addpath(rootDir, '-begin');
+    addpath(fullfile(rootDir, 'map'), '-begin');
+    addpath(fullfile(rootDir, 'high_level'), '-begin');
+    addpath(fullfile(rootDir, 'low_level'), '-begin');
+    addpath(fullfile(rootDir, 'utils'), '-begin');
+    clear CLCBS_RunSimulation CreateMap CBS HybridAstar DubinsHeuristic DubinsPlanner CheckConstraint;
+    clear DetectConflict GenerateChild ComputeCost ComputeError CollisionCheck;
+    clear DrawMap DrawTrajectory DrawVehicle InterpolatePath;
+    rehash;
+end
+
 function runSimulation(src, ~)
     fig = ancestor(src, 'figure');
     app = guidata(fig);
@@ -95,7 +101,9 @@ function runSimulation(src, ~)
     cfg.params.goalTolerance = readScalar(app.goalToleranceEdit, 2.5);
 
     try
-        app.results = runPlannerFromGui(app.rootDir, cfg);
+        activateProjectPath(app.rootDir);
+        cfg.outputDir = fullfile(app.rootDir, 'result', 'save_results');
+        app.results = CLCBS_RunSimulation(cfg);
         guidata(fig, app);
         cla(app.ax);
         axes(app.ax); %#ok<LAXES>
@@ -106,7 +114,7 @@ function runSimulation(src, ~)
         end
         setStatus(app, buildStatusLines(app.results));
     catch err
-        setStatus(app, [{'运行失败:'}; splitLines(err.message)]);
+        setStatus(app, buildErrorLines(err));
     end
 end
 
@@ -183,53 +191,6 @@ function drawInitialMap(fig)
     title(app.ax, sprintf('随机障碍物地图: %d obstacles', size(mapData.obstacles, 1)));
 end
 
-function results = runPlannerFromGui(rootDir, cfg)
-    addpath(rootDir, '-begin');
-    addpath(fullfile(rootDir, 'map'), '-begin');
-    addpath(fullfile(rootDir, 'high_level'), '-begin');
-    addpath(fullfile(rootDir, 'low_level'), '-begin');
-    addpath(fullfile(rootDir, 'utils'), '-begin');
-    clear CreateMap CBS ComputeError;
-    rehash;
-
-    createConfig = struct();
-    createConfig.mapSize = cfg.mapSize;
-    createConfig.obstacleCount = cfg.obstacleCount;
-    createConfig.randomSeed = cfg.randomSeed;
-    createConfig.params = cfg.params;
-
-    [mapData, starts, goals, params] = CreateMap(createConfig);
-    params = mergeStructLocal(params, cfg.params);
-    params.xyResolution = params.r * params.deltat;
-    params.yawResolution = params.deltat;
-
-    outputDir = fullfile(rootDir, 'result', 'save_results');
-    if ~exist(outputDir, 'dir')
-        mkdir(outputDir);
-    end
-
-    tic;
-    [solution, success, stats] = CBS(mapData, starts, goals, params);
-    stats.runtime = toc;
-
-    results = struct();
-    results.map = mapData;
-    results.starts = starts;
-    results.goals = goals;
-    results.params = params;
-    results.solution = solution;
-    results.success = success;
-    results.stats = stats;
-    results.outputDir = outputDir;
-
-    if success
-        results.error = ComputeError(solution, starts, 1, 2:size(starts, 1));
-        saveGuiResults(results);
-    else
-        results.error = ComputeError({}, starts, 1, []);
-    end
-end
-
 function value = readScalar(handle, defaultValue)
     value = str2double(get(handle, 'String'));
     if ~isfinite(value)
@@ -292,52 +253,6 @@ function plotErrorCurve(results)
     end
 end
 
-function saveGuiResults(results)
-    if ~isfield(results, 'outputDir') || ~exist(results.outputDir, 'dir')
-        return;
-    end
-
-    try
-        save(fullfile(results.outputDir, 'clcbs_results.mat'), 'results');
-        statsRow = [results.success, results.stats.cost, results.stats.makespan, ...
-            results.stats.highLevelExpanded, results.stats.lowLevelExpanded, ...
-            results.stats.conflictsResolved, results.stats.runtime, ...
-            results.error.meanError, results.error.maxError];
-        writeMatrixLocal(fullfile(results.outputDir, 'stats_summary.csv'), statsRow);
-        for i = 1:numel(results.solution)
-            writeMatrixLocal(fullfile(results.outputDir, sprintf('agent_%02d_path.csv', i)), ...
-                results.solution{i}.states);
-        end
-        writeMatrixLocal(fullfile(results.outputDir, 'formation_error.csv'), ...
-            [results.error.time, results.error.errors]);
-    catch
-    end
-end
-
-function writeMatrixLocal(filename, data)
-    try
-        writematrix(data, filename);
-    catch
-        csvwrite(filename, data);
-    end
-end
-
-function merged = mergeStructLocal(base, patch)
-    merged = base;
-    if isempty(patch)
-        return;
-    end
-    names = fieldnames(patch);
-    for i = 1:numel(names)
-        f = names{i};
-        if isstruct(patch.(f)) && isfield(merged, f) && isstruct(merged.(f))
-            merged.(f) = mergeStructLocal(merged.(f), patch.(f));
-        else
-            merged.(f) = patch.(f);
-        end
-    end
-end
-
 function count = selectedObstacleCount(app)
     values = [10, 20, 30];
     idx = get(app.obstaclePopup, 'Value');
@@ -346,6 +261,16 @@ end
 
 function setStatus(app, lines)
     set(app.statusText, 'String', lines);
+end
+
+function lines = buildErrorLines(err)
+    lines = [{'运行失败:'}; splitLines(err.message)];
+    if ~isempty(err.stack)
+        for i = 1:min(numel(err.stack), 4)
+            frame = err.stack(i);
+            lines{end + 1, 1} = sprintf('%s 第 %d 行', frame.name, frame.line); %#ok<AGROW>
+        end
+    end
 end
 
 function state = stateAtTime(states, t)
