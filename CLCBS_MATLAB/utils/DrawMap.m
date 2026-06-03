@@ -44,65 +44,36 @@ function ax = DrawMap(mapData, starts, goals, params)
     end
 
     if nargin >= 2 && ~isempty(starts)
-        plot(ax, starts(:, 1), starts(:, 2), 'go', 'MarkerFaceColor', [0, 0.8, 0], ...
-            'MarkerSize', 7, 'HandleVisibility', 'off');
         for i = 1:size(starts, 1)
-            labelPrefix = rolePrefix(i);
-            alphaColor = labelColor(i);
-            text(ax, starts(i, 1), starts(i, 2) + 0.8, shortRoleLabel(i), ...
-                'Color', alphaColor, 'FontSize', labelSize(i), ...
-                'HorizontalAlignment', 'center', 'HandleVisibility', 'off');
+            drawVehicleFrame(ax, starts(i, :), params, [0.0, 0.55, 0.1], '-', 1.1, 0.08);
         end
     end
 
     if nargin >= 3 && ~isempty(goals)
-        plot(ax, goals(:, 1), goals(:, 2), 'rx', 'LineWidth', 1.7, ...
-            'MarkerSize', 9, 'HandleVisibility', 'off');
         for i = 1:size(goals, 1)
-            alphaColor = goalLabelColor(i);
-            text(ax, goals(i, 1), goals(i, 2) + 0.8, ['G-', shortRoleLabel(i)], ...
-                'Color', alphaColor, 'FontSize', labelSize(i), ...
-                'HorizontalAlignment', 'center', 'HandleVisibility', 'off');
+            drawVehicleFrame(ax, goals(i, :), params, [0.75, 0.0, 0.0], '--', 1.2, 0.02);
         end
     end
 end
 
-function label = shortRoleLabel(idx)
-    if idx <= 3
-        label = sprintf('L%d', idx);
-    else
-        label = sprintf('F%d', idx - 3);
-    end
+function drawVehicleFrame(ax, state, params, color, lineStyle, lineWidth, faceAlpha)
+    corners = vehicleCorners(state, params);
+    patch(ax, corners(:, 1), corners(:, 2), color, ...
+        'FaceAlpha', faceAlpha, ...
+        'EdgeColor', color, ...
+        'LineStyle', lineStyle, ...
+        'LineWidth', lineWidth, ...
+        'HandleVisibility', 'off');
 end
 
-function prefix = rolePrefix(idx)
-    if idx <= 3
-        prefix = 'L';
-    else
-        prefix = 'F';
-    end
-end
-
-function sz = labelSize(idx)
-    if idx <= 3
-        sz = 10;
-    else
-        sz = 8;
-    end
-end
-
-function c = labelColor(idx)
-    if idx <= 3
-        c = [0, 0.45, 0];
-    else
-        c = [0.15, 0.55, 0.15];
-    end
-end
-
-function c = goalLabelColor(idx)
-    if idx <= 3
-        c = [0.78, 0, 0];
-    else
-        c = [0.85, 0.2, 0.2];
-    end
+function corners = vehicleCorners(state, params)
+    halfW = params.carWidth / 2;
+    local = [ ...
+        params.LF,  halfW; ...
+        params.LF, -halfW; ...
+       -params.LB, -halfW; ...
+       -params.LB,  halfW];
+    yaw = state(3);
+    rot = [cos(yaw), -sin(yaw); sin(yaw), cos(yaw)];
+    corners = local * rot.' + state(1:2);
 end
