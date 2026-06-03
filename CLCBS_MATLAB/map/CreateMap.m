@@ -66,7 +66,8 @@ function params = defaultParams()
     params.agentSafetyScale = 1.0;
     params.interpolationStep = 0.8;
     params.preciseCollision = true;
-    params.randomObstacleRadiusRange = [1.0, 2.6];
+    params.randomObstacleRadius = 1.0;
+    params.randomObstacleRadiusRange = [1.0, 1.0];
     params.obstacleMargin = 4.0;
     params.startGoalClearance = 7.0;
     params.minObstacleGap = 1.0;
@@ -100,11 +101,10 @@ end
 function obstacles = sampleObstacles(mapSize, obstacleCount, anchors, params)
     obstacles = zeros(obstacleCount, 3);
     accepted = 0;
-    radiusRange = params.randomObstacleRadiusRange;
+    radius = params.randomObstacleRadius;
     margin = params.obstacleMargin;
 
     for trial = 1:params.maxObstacleSampleAttempts
-        radius = radiusRange(1) + rand() * (radiusRange(2) - radiusRange(1));
         x = margin + radius + rand() * (mapSize(1) - 2 * (margin + radius));
         y = margin + radius + rand() * (mapSize(2) - 2 * (margin + radius));
 

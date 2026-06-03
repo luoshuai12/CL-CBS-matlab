@@ -34,7 +34,7 @@ Notes:
 - The default formation contains seven robots numbered `0` to `6`.
   Starts are `[30,25,0]`, `[24,31,0]`, `[24,19,0]`, `[18,31,0]`, `[18,19,0]`, `[12,31,0]`, `[12,19,0]`.
   Goals are `[130,25,0]`, `[124,31,0]`, `[124,19,0]`, `[118,31,0]`, `[118,19,0]`, `[112,31,0]`, `[112,19,0]`.
-- `CreateMap.m` generates random circular obstacles and rejects obstacles too close to starts/goals. It also checks grid reachability so every robot has a feasible start-to-goal corridor.
+- `CreateMap.m` generates random circular obstacles with a fixed `1m` radius and rejects obstacles too close to starts/goals. It also checks grid reachability so every robot has a feasible start-to-goal corridor.
 - `gui_main.m` provides a dropdown to choose `10`, `20`, or `30` random obstacles.
 - GUI animation updates existing vehicle graphics handles frame-by-frame instead of clearing and redrawing the axes, avoiding flicker during playback.
 - Visualization uses high-contrast colors, role-aware labels (`Leader/Follower`), simplified legends, obstacle outlines, and formation-edge dashed lines.
