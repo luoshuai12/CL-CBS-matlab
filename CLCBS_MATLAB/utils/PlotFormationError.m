@@ -24,11 +24,7 @@ function ax = PlotFormationError(errorInfo, ax)
         return;
     end
 
-    yMax = max(errors(:));
-    if ~isfinite(yMax) || yMax <= 0
-        yMax = 1;
-    end
-    yUpper = max(yMax + 1.2, yMax * 1.8);
+    yUpper = 50;
     xPad = max(6, 0.18 * max(1, time(end) - time(1)));
 
     meanCurve = mean(errors, 2);
