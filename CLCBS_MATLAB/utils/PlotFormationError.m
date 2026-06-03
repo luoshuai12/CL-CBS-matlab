@@ -12,10 +12,10 @@ function ax = PlotFormationError(errorInfo, ax)
     fig = ancestor(ax, 'figure');
     if ~isempty(fig) && ishandle(fig)
         set(fig, 'Color', 'w');
-        set(fig, 'Units', 'centimeters', 'Position', [2, 2, 30.0, 18.0]);
-        set(fig, 'PaperUnits', 'centimeters', 'PaperPosition', [0, 0, 30.0, 18.0]);
+        set(fig, 'Units', 'centimeters', 'Position', [2, 2, 30.0, 10.0]);
+        set(fig, 'PaperUnits', 'centimeters', 'PaperPosition', [0, 0, 30.0, 10.0]);
     end
-    set(ax, 'Units', 'normalized', 'Position', [0.10, 0.14, 0.78, 0.76], ...
+    set(ax, 'Units', 'normalized', 'Position', [0.08, 0.24, 0.82, 0.62], ...
         'FontName', 'Times New Roman', 'FontSize', 8, ...
         'LineWidth', 0.5, 'TickDir', 'in', 'TickLength', [0.015, 0.015], ...
         'Color', 'w');
@@ -58,6 +58,7 @@ function ax = PlotFormationError(errorInfo, ax)
     ylabel(ax, 'Tracking error (m)', 'FontName', 'Times New Roman', 'FontSize', 8);
     xlim(ax, [time(1) - xPad, time(end) + xPad]);
     ylim(ax, [0, yUpper]);
+    set(ax, 'YTick', 0:10:50);
 
     lgd = legend(ax, 'Location', 'northeast');
     set(lgd, 'FontName', 'Times New Roman', 'FontSize', 8, 'Box', 'off');
