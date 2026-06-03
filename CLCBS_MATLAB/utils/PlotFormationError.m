@@ -9,6 +9,11 @@ function ax = PlotFormationError(errorInfo, ax)
     hold(ax, 'on');
     box(ax, 'on');
     grid(ax, 'on');
+    fig = ancestor(ax, 'figure');
+    if ~isempty(fig) && ishandle(fig)
+        set(fig, 'Position', [100, 100, 1120, 520]);
+    end
+    set(ax, 'Units', 'normalized', 'Position', [0.08, 0.20, 0.74, 0.58]);
     ax.GridAlpha = 0.18;
     ax.MinorGridAlpha = 0.08;
 
@@ -19,8 +24,15 @@ function ax = PlotFormationError(errorInfo, ax)
         return;
     end
 
+    yMax = max(errors(:));
+    if ~isfinite(yMax) || yMax <= 0
+        yMax = 1;
+    end
+    yUpper = max(yMax + 1.2, yMax * 1.8);
+    xPad = max(6, 0.18 * max(1, time(end) - time(1)));
+
     meanCurve = mean(errors, 2);
-    highlightHighErrorPhase(ax, time, meanCurve);
+    highlightHighErrorPhase(ax, time, meanCurve, yUpper);
 
     colors = followerColors(size(errors, 2));
     for k = 1:size(errors, 2)
@@ -37,16 +49,8 @@ function ax = PlotFormationError(errorInfo, ax)
     xlabel(ax, 'time step');
     ylabel(ax, 'formation error [m]');
     title(ax, 'Follower Formation Error');
-    axis(ax, 'tight');
-
-    yMax = max(errors(:));
-    if ~isfinite(yMax) || yMax <= 0
-        yMax = 1;
-    end
-    ylim(ax, [0, yMax + 0.8]);
-
-    xPad = max(1, 0.03 * max(1, time(end) - time(1)));
     xlim(ax, [time(1) - xPad, time(end) + xPad]);
+    ylim(ax, [0, yUpper]);
 
     legend(ax, 'Location', 'eastoutside');
 end
@@ -67,7 +71,7 @@ function colors = followerColors(n)
     end
 end
 
-function highlightHighErrorPhase(ax, time, meanCurve)
+function highlightHighErrorPhase(ax, time, meanCurve, yUpper)
     if isempty(meanCurve) || max(meanCurve) <= 0
         return;
     end
@@ -78,7 +82,7 @@ function highlightHighErrorPhase(ax, time, meanCurve)
         return;
     end
 
-    yLimit = [0, max(meanCurve) + 1];
+    yLimit = [0, yUpper];
     idx = find(active);
     breaks = [1; find(diff(idx) > 1) + 1; numel(idx) + 1];
     for b = 1:numel(breaks) - 1
