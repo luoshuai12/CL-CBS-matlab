@@ -32,7 +32,7 @@ function ax = PlotFormationError(errorInfo, ax)
     xPad = max(6, 0.18 * max(1, time(end) - time(1)));
 
     colors = followerColors(size(errors, 2));
-    lineStyles = {'-', '--', '-.', ':', '-', '--', '-.'};
+    lineStyles = {'--', '-.', ':', '--', '-.', ':'};
     markers = {'o', 's', '^', 'd', 'v', '>'};
     markerIdx = markerIndices(numel(time));
     for k = 1:size(errors, 2)
@@ -50,18 +50,49 @@ function ax = PlotFormationError(errorInfo, ax)
     end
 
     meanCurve = mean(errors, 2);
+    convergenceTime = estimateConvergenceTime(time, meanCurve);
     plot(ax, time, meanCurve, 'k-', ...
-        'LineWidth', 2.4, ...
+        'LineWidth', 3.0, ...
         'DisplayName', 'Mean');
+    if ~isnan(convergenceTime)
+        plot(ax, [convergenceTime, convergenceTime], [0, yUpper], 'k:', ...
+            'LineWidth', 0.8, 'HandleVisibility', 'off');
+        text(ax, convergenceTime, 0.86 * yUpper, ...
+            sprintf('Convergence at %.1f s', convergenceTime), ...
+            'FontName', 'Times New Roman', 'FontSize', 9, ...
+            'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle', ...
+            'HandleVisibility', 'off');
+    end
 
     xlabel(ax, 'Time (s)', 'FontName', 'Times New Roman', 'FontSize', 11);
     ylabel(ax, 'Tracking error (m)', 'FontName', 'Times New Roman', 'FontSize', 11);
-    xlim(ax, [time(1) - xPad, time(end) + xPad]);
+    xlim(ax, [0, time(end) + xPad]);
     ylim(ax, [0, yUpper]);
     set(ax, 'YTick', 0:10:50);
 
     lgd = legend(ax, 'Location', 'northeast');
     set(lgd, 'FontName', 'Times New Roman', 'FontSize', 10, 'Box', 'off');
+end
+
+function convergenceTime = estimateConvergenceTime(time, meanCurve)
+    convergenceTime = NaN;
+    if isempty(time) || isempty(meanCurve)
+        return;
+    end
+
+    peakValue = max(meanCurve);
+    if peakValue <= 0
+        return;
+    end
+
+    threshold = max(0.05 * peakValue, 0.05);
+    [~, peakIdx] = max(meanCurve);
+    for idx = peakIdx:numel(meanCurve)
+        if all(meanCurve(idx:end) <= threshold)
+            convergenceTime = time(idx);
+            return;
+        end
+    end
 end
 
 function colors = followerColors(n)
