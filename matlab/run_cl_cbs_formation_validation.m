@@ -684,7 +684,7 @@ function fig = plotCaseComparison(results, caseIdx)
     grid on;
     xlabel("时间步");
     ylabel("平均编队误差 (m)");
-    legend({"本文算法", "CL-CBS", "CL-CBS-II"}, "Location", "northwest");
+    legend({"本文算法", "CL-CBS", "CL-CBS-II"}, "Location", "northeast");
     title("编队误差曲线");
     hold off;
 end
