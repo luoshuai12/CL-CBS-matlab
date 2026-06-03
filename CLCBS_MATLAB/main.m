@@ -187,7 +187,7 @@ function saveErrorFigure(results, outputDir)
 
     fig = [];
     try
-        fig = figure('Name', 'Formation error', 'Visible', 'off');
+        fig = figure('Name', 'Formation tracking errors over time', 'Visible', 'off');
         ax = axes('Parent', fig);
         PlotFormationError(results.error, ax);
         saveErrorFigureFiles(fig, outputDir);

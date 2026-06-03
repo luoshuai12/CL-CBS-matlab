@@ -39,7 +39,7 @@ Notes:
 - GUI animation updates existing vehicle graphics handles frame-by-frame instead of clearing and redrawing the axes, avoiding flicker during playback.
 - Visualization uses high-contrast colors, role-aware labels (`Leader/Follower`), simplified legends, obstacle outlines, and formation-edge dashed lines.
 - After a successful GUI run, the follower formation error curve is displayed and also saved as `formation_error_curve.png`.
-- Formation error plots use a large `30cm x 10cm` layout (height:width = 1:3), Times New Roman 8pt labels, open L-shaped axes, no title/grid, high-contrast color+line+marker curves, fixed `0-50m` y-axis range with ticks at `0,10,20,30,40,50`, and PDF/EPS vector export.
+- Formation error plots use a large `30cm x 10cm` layout (height:width = 1:3), Times New Roman labels, open L-shaped axes, no in-plot title/grid, high-contrast color+line+marker curves, a bold black solid mean line, fixed `0-50m` y-axis range with ticks at `0,10,20,30,40,50`, and PDF/EPS vector export.
 - The high-level planner keeps the CL-CBS conflict tree, body-conflict detection, constraint generation, and constrained low-level replanning workflow.
 - The low-level planner keeps the car-like forward/reverse motion primitives, Dubins-style heuristic, and spatiotemporal constraint checks.
 - The original C++ implementation uses OMPL Reeds-Shepp analytic expansion. This MATLAB version avoids external dependencies and uses an approximate Dubins-style connector near the goal.

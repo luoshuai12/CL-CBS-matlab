@@ -262,7 +262,7 @@ function plotErrorCurve(results)
         return;
     end
 
-    fig = figure('Name', 'Formation Error Curve', 'NumberTitle', 'off');
+    fig = figure('Name', 'Formation tracking errors over time', 'NumberTitle', 'off');
     ax = axes('Parent', fig);
     PlotFormationError(results.error, ax);
 
