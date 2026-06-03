@@ -23,8 +23,8 @@ function ax = PlotFormationError(errorInfo, ax)
     time = errorInfo.time;
     errors = errorInfo.errors;
     if isempty(time) || isempty(errors)
-        xlabel(ax, 'Time (s)', 'FontName', 'Times New Roman', 'FontSize', 11);
-        ylabel(ax, 'Tracking error (m)', 'FontName', 'Times New Roman', 'FontSize', 11);
+        xlabel(ax, 'Time [s]', 'FontName', 'Times New Roman', 'FontSize', 11);
+        ylabel(ax, 'Formation Tracking Error (m)', 'FontName', 'Times New Roman', 'FontSize', 11);
         return;
     end
 
@@ -43,7 +43,7 @@ function ax = PlotFormationError(errorInfo, ax)
             'Marker', markers{mod(k - 1, numel(markers)) + 1}, ...
             'MarkerSize', 4.2, ...
             'MarkerFaceColor', 'w', ...
-            'DisplayName', sprintf('Agent %d', k));
+            'DisplayName', sprintf('Agent %d error', k));
         if isprop(h, 'MarkerIndices')
             h.MarkerIndices = markerIdx;
         end
@@ -53,7 +53,7 @@ function ax = PlotFormationError(errorInfo, ax)
     convergenceTime = estimateConvergenceTime(time, meanCurve);
     plot(ax, time, meanCurve, 'k-', ...
         'LineWidth', 3.0, ...
-        'DisplayName', 'Mean');
+        'DisplayName', 'Mean error');
     if ~isnan(convergenceTime)
         plot(ax, [convergenceTime, convergenceTime], [0, yUpper], 'k:', ...
             'LineWidth', 0.8, 'HandleVisibility', 'off');
@@ -64,13 +64,13 @@ function ax = PlotFormationError(errorInfo, ax)
             'HandleVisibility', 'off');
     end
 
-    xlabel(ax, 'Time (s)', 'FontName', 'Times New Roman', 'FontSize', 11);
-    ylabel(ax, 'Tracking error (m)', 'FontName', 'Times New Roman', 'FontSize', 11);
+    xlabel(ax, 'Time [s]', 'FontName', 'Times New Roman', 'FontSize', 11);
+    ylabel(ax, 'Formation Tracking Error (m)', 'FontName', 'Times New Roman', 'FontSize', 11);
     xlim(ax, [0, time(end) + xPad]);
     ylim(ax, [0, yUpper]);
     set(ax, 'YTick', 0:10:50);
 
-    lgd = legend(ax, 'Location', 'northeast');
+    lgd = legend(ax, 'Location', 'northwest');
     set(lgd, 'FontName', 'Times New Roman', 'FontSize', 10, 'Box', 'off');
 end
 

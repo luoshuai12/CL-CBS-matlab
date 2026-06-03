@@ -187,7 +187,7 @@ function saveErrorFigure(results, outputDir)
 
     fig = [];
     try
-        fig = figure('Name', 'Formation tracking errors over time', 'Visible', 'off');
+        fig = figure('Name', 'Formation Tracking Error Over Time', 'Visible', 'off');
         ax = axes('Parent', fig);
         PlotFormationError(results.error, ax);
         saveErrorFigureFiles(fig, outputDir);
@@ -201,7 +201,7 @@ function saveErrorFigure(results, outputDir)
 end
 
 function saveErrorFigureFiles(fig, outputDir)
-    saveas(fig, fullfile(outputDir, 'formation_error_curve.png'));
+    print(fig, fullfile(outputDir, 'formation_error_curve.png'), '-dpng', '-r600');
     try
         exportgraphics(fig, fullfile(outputDir, 'formation_error_curve.pdf'), 'ContentType', 'vector');
     catch
