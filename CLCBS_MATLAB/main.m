@@ -190,7 +190,7 @@ function saveErrorFigure(results, outputDir)
         fig = figure('Name', 'Formation error', 'Visible', 'off');
         ax = axes('Parent', fig);
         PlotFormationError(results.error, ax);
-        saveas(fig, fullfile(outputDir, 'formation_error_curve.png'));
+        saveErrorFigureFiles(fig, outputDir);
     catch err
         warning('CLCBS:SaveErrorFigureFailed', 'Failed to save error curve: %s', err.message);
     end
@@ -198,6 +198,16 @@ function saveErrorFigure(results, outputDir)
     if ~isempty(fig) && ishandle(fig)
         close(fig);
     end
+end
+
+function saveErrorFigureFiles(fig, outputDir)
+    saveas(fig, fullfile(outputDir, 'formation_error_curve.png'));
+    try
+        exportgraphics(fig, fullfile(outputDir, 'formation_error_curve.pdf'), 'ContentType', 'vector');
+    catch
+        print(fig, fullfile(outputDir, 'formation_error_curve.pdf'), '-dpdf', '-r300');
+    end
+    print(fig, fullfile(outputDir, 'formation_error_curve.eps'), '-depsc2', '-r300');
 end
 
 function saveFigure(results, fig, outputDir)

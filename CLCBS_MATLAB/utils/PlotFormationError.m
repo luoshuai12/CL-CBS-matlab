@@ -7,48 +7,60 @@ function ax = PlotFormationError(errorInfo, ax)
 
     cla(ax);
     hold(ax, 'on');
-    box(ax, 'on');
-    grid(ax, 'on');
+    box(ax, 'off');
+    grid(ax, 'off');
     fig = ancestor(ax, 'figure');
     if ~isempty(fig) && ishandle(fig)
-        set(fig, 'Position', [100, 100, 1120, 520]);
+        set(fig, 'Color', 'w');
+        set(fig, 'Units', 'centimeters', 'Position', [2, 2, 8.5, 6.0]);
+        set(fig, 'PaperUnits', 'centimeters', 'PaperPosition', [0, 0, 8.5, 6.0]);
     end
-    set(ax, 'Units', 'normalized', 'Position', [0.08, 0.20, 0.74, 0.58]);
-    ax.GridAlpha = 0.18;
-    ax.MinorGridAlpha = 0.08;
+    set(ax, 'Units', 'normalized', 'Position', [0.16, 0.18, 0.62, 0.70], ...
+        'FontName', 'Times New Roman', 'FontSize', 8, ...
+        'LineWidth', 0.5, 'TickDir', 'in', 'TickLength', [0.015, 0.015], ...
+        'Color', 'w');
 
     time = errorInfo.time;
     errors = errorInfo.errors;
     if isempty(time) || isempty(errors)
-        title(ax, 'Follower Formation Error');
+        xlabel(ax, 'Time (s)', 'FontName', 'Times New Roman', 'FontSize', 8);
+        ylabel(ax, 'Tracking error (m)', 'FontName', 'Times New Roman', 'FontSize', 8);
         return;
     end
 
     yUpper = 50;
     xPad = max(6, 0.18 * max(1, time(end) - time(1)));
 
-    meanCurve = mean(errors, 2);
-    highlightHighErrorPhase(ax, time, meanCurve, yUpper);
-
     colors = followerColors(size(errors, 2));
+    lineStyles = {'-', '--', '-.', ':', '-', '--', '-.'};
+    markers = {'o', 's', '^', 'd', 'v', '>'};
+    markerIdx = markerIndices(numel(time));
     for k = 1:size(errors, 2)
-        plot(ax, time, errors(:, k), '-', ...
+        h = plot(ax, time, errors(:, k), ...
+            'LineStyle', lineStyles{mod(k - 1, numel(lineStyles)) + 1}, ...
             'Color', colors(k, :), ...
-            'LineWidth', 1.6, ...
-            'DisplayName', sprintf('F%d', k));
+            'LineWidth', 1.1, ...
+            'Marker', markers{mod(k - 1, numel(markers)) + 1}, ...
+            'MarkerSize', 3.2, ...
+            'MarkerFaceColor', 'w', ...
+            'DisplayName', sprintf('Agent %d', k));
+        if isprop(h, 'MarkerIndices')
+            h.MarkerIndices = markerIdx;
+        end
     end
 
+    meanCurve = mean(errors, 2);
     plot(ax, time, meanCurve, 'k--', ...
-        'LineWidth', 2.6, ...
+        'LineWidth', 1.5, ...
         'DisplayName', 'Mean');
 
-    xlabel(ax, 'time step');
-    ylabel(ax, 'formation error [m]');
-    title(ax, 'Follower Formation Error');
+    xlabel(ax, 'Time (s)', 'FontName', 'Times New Roman', 'FontSize', 8);
+    ylabel(ax, 'Tracking error (m)', 'FontName', 'Times New Roman', 'FontSize', 8);
     xlim(ax, [time(1) - xPad, time(end) + xPad]);
     ylim(ax, [0, yUpper]);
 
-    legend(ax, 'Location', 'eastoutside');
+    lgd = legend(ax, 'Location', 'northeast');
+    set(lgd, 'FontName', 'Times New Roman', 'FontSize', 8, 'Box', 'off');
 end
 
 function colors = followerColors(n)
@@ -67,28 +79,11 @@ function colors = followerColors(n)
     end
 end
 
-function highlightHighErrorPhase(ax, time, meanCurve, yUpper)
-    if isempty(meanCurve) || max(meanCurve) <= 0
+function idx = markerIndices(n)
+    if n <= 1
+        idx = 1;
         return;
     end
-
-    threshold = 0.45 * max(meanCurve);
-    active = meanCurve >= threshold;
-    if ~any(active)
-        return;
-    end
-
-    yLimit = [0, yUpper];
-    idx = find(active);
-    breaks = [1; find(diff(idx) > 1) + 1; numel(idx) + 1];
-    for b = 1:numel(breaks) - 1
-        segment = idx(breaks(b):breaks(b + 1) - 1);
-        x1 = time(segment(1));
-        x2 = time(segment(end));
-        patch(ax, [x1, x2, x2, x1], [yLimit(1), yLimit(1), yLimit(2), yLimit(2)], ...
-            [0.88, 0.88, 0.88], ...
-            'FaceAlpha', 0.25, ...
-            'EdgeColor', 'none', ...
-            'HandleVisibility', 'off');
-    end
+    step = max(1, floor(n / 8));
+    idx = unique([1, 1:step:n, n]);
 end

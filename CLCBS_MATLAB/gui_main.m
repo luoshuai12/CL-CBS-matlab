@@ -268,10 +268,20 @@ function plotErrorCurve(results)
 
     if isfield(results, 'outputDir') && exist(results.outputDir, 'dir')
         try
-            saveas(fig, fullfile(results.outputDir, 'formation_error_curve.png'));
+            saveErrorFigureFiles(fig, results.outputDir);
         catch
         end
     end
+end
+
+function saveErrorFigureFiles(fig, outputDir)
+    saveas(fig, fullfile(outputDir, 'formation_error_curve.png'));
+    try
+        exportgraphics(fig, fullfile(outputDir, 'formation_error_curve.pdf'), 'ContentType', 'vector');
+    catch
+        print(fig, fullfile(outputDir, 'formation_error_curve.pdf'), '-dpdf', '-r300');
+    end
+    print(fig, fullfile(outputDir, 'formation_error_curve.eps'), '-depsc2', '-r300');
 end
 
 function handles = initFormationEdges(ax, solution, style)
