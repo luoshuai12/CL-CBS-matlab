@@ -12,10 +12,10 @@ function ax = PlotFormationError(errorInfo, ax)
     fig = ancestor(ax, 'figure');
     if ~isempty(fig) && ishandle(fig)
         set(fig, 'Color', 'w');
-        set(fig, 'Units', 'centimeters', 'Position', [2, 2, 8.5, 6.0]);
-        set(fig, 'PaperUnits', 'centimeters', 'PaperPosition', [0, 0, 8.5, 6.0]);
+        set(fig, 'Units', 'centimeters', 'Position', [2, 2, 30.0, 18.0]);
+        set(fig, 'PaperUnits', 'centimeters', 'PaperPosition', [0, 0, 30.0, 18.0]);
     end
-    set(ax, 'Units', 'normalized', 'Position', [0.16, 0.18, 0.62, 0.70], ...
+    set(ax, 'Units', 'normalized', 'Position', [0.10, 0.14, 0.78, 0.76], ...
         'FontName', 'Times New Roman', 'FontSize', 8, ...
         'LineWidth', 0.5, 'TickDir', 'in', 'TickLength', [0.015, 0.015], ...
         'Color', 'w');
