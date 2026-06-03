@@ -275,13 +275,20 @@ function plotErrorCurve(results)
 end
 
 function saveErrorFigureFiles(fig, outputDir)
+    prepareErrorFigureForPrint(fig);
     print(fig, fullfile(outputDir, 'formation_error_curve.png'), '-dpng', '-r600');
-    try
-        exportgraphics(fig, fullfile(outputDir, 'formation_error_curve.pdf'), 'ContentType', 'vector');
-    catch
-        print(fig, fullfile(outputDir, 'formation_error_curve.pdf'), '-dpdf', '-r300');
-    end
-    print(fig, fullfile(outputDir, 'formation_error_curve.eps'), '-depsc2', '-r300');
+    print(fig, fullfile(outputDir, 'formation_error_curve.pdf'), '-dpdf', '-painters', '-r600');
+    print(fig, fullfile(outputDir, 'formation_error_curve.eps'), '-depsc2', '-painters', '-r600');
+end
+
+function prepareErrorFigureForPrint(fig)
+    set(fig, 'Color', 'w', ...
+        'PaperUnits', 'centimeters', ...
+        'PaperSize', [30.0, 10.0], ...
+        'PaperPosition', [0, 0, 30.0, 10.0], ...
+        'PaperPositionMode', 'manual', ...
+        'InvertHardcopy', 'off', ...
+        'Renderer', 'painters');
 end
 
 function handles = initFormationEdges(ax, solution, style)
