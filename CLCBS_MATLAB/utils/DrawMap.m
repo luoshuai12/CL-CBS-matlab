@@ -51,7 +51,7 @@ function ax = DrawMap(mapData, starts, goals, params)
 
     if nargin >= 3 && ~isempty(goals)
         for i = 1:size(goals, 1)
-            drawVehicleFrame(ax, goals(i, :), params, [0.75, 0.0, 0.0], '--', 1.2, 0.02);
+            drawVehicleFrame(ax, goals(i, :), params, [0.0, 0.55, 0.1], '--', 1.2, 0.03);
         end
     end
 end
